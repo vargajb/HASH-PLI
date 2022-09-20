@@ -1,0 +1,811 @@
+ /*********************************************************************/
+ /*                                                                   */
+ /*   MAIN PROGRAM FOR CALLING HASH FUNCTIONS                         */
+ /*                                                                   */
+ /*********************************************************************/
+ HASH: PROC OPTIONS(MAIN) REORDER;
+ /*********************************************************************/
+ /*                                                                   */
+ /*             D   E   F   I   N   I   T   I   O   N   S             */
+ /*                                                                   */
+ /*********************************************************************/
+ /*===================================================================*/
+ /*   FILES                                                           */
+ /*===================================================================*/
+      DECLARE
+ TED01I        FILE RECORD INPUT;  /* input file whose checksum is    */
+                                   /* calculated.                     */
+ /*-------------------------------------------------------------------*/
+ /*   BUILTINS                                                        */
+ /*-------------------------------------------------------------------*/
+      DECLARE
+ (ADDR,STG,NULL,SYSNULL, LENGTH,PLIRETC,HEXIMAGE,HEX,UTF8,ORDINALNAME,
+  ORDINALSUCC,PROCEDURENAME,TIME,SUBSTR,AUTOMATIC,DIVIDE)  BUILTIN;
+ /*-------------------------------------------------------------------*/
+ /*   DEFINITIONS FOR SHA2                                            */
+ /*-------------------------------------------------------------------*/
+ %INCLUDE O(PPMMAC);    /* GENERAL PL/I PREPROCESSORS MACROS          */
+ %INCLUDE O(SHA2);      /* TYPE DEFINITIONS FOR THE SHA2 ALGORITHM    */
+ /*-------------------------------------------------------------------*/
+ /* Constants to verify the SHA2 algorithm                            */
+ /* See:                                                              */
+ /* https://en.wikipedia.org/w/index.php?title=SHA-2&oldid=587073545  */
+ /*-------------------------------------------------------------------*/
+      DECLARE
+ TEST_STR1       CHAR(43) STATIC
+              INIT(UTF8('The quick brown fox jumps over the lazy dog')),
+ TEST_STR2       CHAR(44)         INIT((TEST_STR1 !! UTF8('.'))),
+ SIPHASH_KEY     CHAR(16) STATIC  INIT(UTF8('ABCDEFGHIJKLMNOP'));
+ /*********************************************************************/
+ /*                                                                   */
+ /*               P   R   O   C   E   S   S   I   N   G               */
+ /*                                                                   */
+ /*********************************************************************/
+
+    CALL EXECUTE_BASIC_TEST_CASES_SHA224;
+    CALL EXECUTE_BASIC_TEST_CASES_SHA256;
+    CALL EXECUTE_BASIC_TEST_CASES_SHA384;
+    CALL EXECUTE_BASIC_TEST_CASES_SHA512;
+    CALL EXECUTE_BASIC_TEST_CASES_SHA512_224;
+    CALL EXECUTE_BASIC_TEST_CASES_SHA512_256;
+    CALL EXECUTE_BASIC_TEST_CASES_CRC32;
+    CALL EXECUTE_BASIC_TEST_CASES_SIPHASH64;
+    PUT EDIT('') (SKIP, A);
+
+    CALL CALCULATE_SHA2_CHECKSUMS_OF_FILE(TED01I);
+    PUT EDIT('') (SKIP, A);
+
+    CALL CALCULATE_SHA224_CHECKSUM_OF_FILE(TED01I);
+    CALL CALCULATE_SHA256_CHECKSUM_OF_FILE(TED01I);
+    CALL CALCULATE_SHA384_CHECKSUM_OF_FILE(TED01I);
+    CALL CALCULATE_SHA512_CHECKSUM_OF_FILE(TED01I);
+    CALL CALCULATE_SHA512_224_CHECKSUM_OF_FILE(TED01I);
+    CALL CALCULATE_SHA512_256_CHECKSUM_OF_FILE(TED01I);
+    PUT EDIT('') (SKIP, A);
+
+    CALL CRC32_PERFORMANCE_TEST(100);
+    CALL SIPHASH64_PERFORMANCE_TEST(100);
+    CALL SHA2_PERFORMANCE_TESTS;
+
+    GOTO HASH_END;
+
+ EXECUTE_BASIC_TEST_CASES_SHA224: PROC;
+      DECLARE
+ RETCODE         BIN FIXED(31)  INIT(0),
+ TEST_STR1_H224  TYPE SHA224_DIGEST_TYPE STATIC
+                                INIT(('730E109BD7A8A32B1CB9D9A09AA2'X !!
+                                      '325D2430587DDBC0C38BAD911525'X)),
+ TEST_STR2_H224  TYPE SHA224_DIGEST_TYPE STATIC
+                                INIT(('619CBA8E8E05826E9B8C519C0A5C'X !!
+                                      '68F4FB653E8A3D8AA04BB2C8CD4C'X)),
+ TEST_EMPTY_H224 TYPE SHA224_DIGEST_TYPE STATIC
+                                INIT(('D14A028C2A3A2BC9476102BB2882'X !!
+                                      '34C415A2B01F828EA62AC5B3E42F'X));
+
+    IF SHA224(ADDR(TEST_STR1),STG(TEST_STR1)) <> TEST_STR1_H224 THEN DO;
+       PUT SKIP LIST('Failed test case: #1 - incorrect result.');
+       RETCODE = 4;
+    END;
+    IF SHA224(ADDR(TEST_STR2),STG(TEST_STR2)) <> TEST_STR2_H224 THEN DO;
+       PUT SKIP LIST('Failed test case: #2 - incorrect result.');
+       RETCODE = 4;
+    END;
+    IF SHA2(SHA2_224,
+            ADDR(TEST_STR1),STG(TEST_STR1)) <> TEST_STR1_H224 THEN DO;
+       PUT SKIP LIST('Failed test case: #3 - incorrect result.');
+       RETCODE = 4;
+    END;
+    IF SHA2(SHA2_224,
+            ADDR(TEST_STR2),STG(TEST_STR2)) <> TEST_STR2_H224 THEN DO;
+       PUT SKIP LIST('Failed test case: #4 - incorrect result.');
+       RETCODE = 4;
+    END;
+    IF SHA224(NULL(), 0) <> TEST_EMPTY_H224 THEN DO;
+       PUT SKIP LIST('Failed test case: #5 - incorrect result.');
+       RETCODE = 4;
+    END;
+    IF SHA2(SHA2_224, NULL(), 0) <> TEST_EMPTY_H224 THEN DO;
+       PUT SKIP LIST('Failed test case: #6 - incorrect result.');
+       RETCODE = 4;
+    END;
+    CALL EVAL_RETCODE(RETCODE, PROCEDURENAME());
+ END EXECUTE_BASIC_TEST_CASES_SHA224;
+
+ EXECUTE_BASIC_TEST_CASES_SHA256: PROC;
+      DECLARE
+ RETCODE         BIN FIXED(31)  INIT(0),
+ TEST_STR1_H256  TYPE SHA256_DIGEST_TYPE STATIC
+                            INIT(('D7A8FBB307D7809469CA9ABCB0082E4F'X !!
+                                  '8D5651E46D3CDB762D02D0BF37C9E592'X)),
+ TEST_STR2_H256  TYPE SHA256_DIGEST_TYPE STATIC
+                            INIT(('EF537F25C895BFA782526529A9B63D97'X !!
+                                  'AA631564D5D789C2B765448C8635FB6C'X)),
+ TEST_EMPTY_H256 TYPE SHA256_DIGEST_TYPE STATIC
+                            INIT(('E3B0C44298FC1C149AFBF4C8996FB924'X !!
+                                  '27AE41E4649B934CA495991B7852B855'X));
+
+    IF SHA256(ADDR(TEST_STR1),STG(TEST_STR1)) <> TEST_STR1_H256 THEN DO;
+       PUT SKIP LIST('Failed test case: #7 - incorrect result.');
+       RETCODE = 4;
+    END;
+    IF SHA256(ADDR(TEST_STR2),STG(TEST_STR2)) <> TEST_STR2_H256 THEN DO;
+       PUT SKIP LIST('Failed test case: #8 - incorrect result.');
+       RETCODE = 4;
+    END;
+    IF SHA2(SHA2_256,
+            ADDR(TEST_STR1),STG(TEST_STR1)) <> TEST_STR1_H256 THEN DO;
+       PUT SKIP LIST('Failed test case: #9 - incorrect result.');
+       RETCODE = 4;
+    END;
+    IF SHA2(SHA2_256,
+            ADDR(TEST_STR2),STG(TEST_STR2)) <> TEST_STR2_H256 THEN DO;
+       PUT SKIP LIST('Failed test case: #10 - incorrect result.');
+       RETCODE = 4;
+    END;
+    IF SHA256(NULL(), 0) <> TEST_EMPTY_H256 THEN DO;
+       PUT SKIP LIST('Failed test case: #11 - incorrect result.');
+       RETCODE = 4;
+    END;
+    IF SHA2(SHA2_256, NULL(), 0) <> TEST_EMPTY_H256 THEN DO;
+       PUT SKIP LIST('Failed test case: #12 - incorrect result.');
+       RETCODE = 4;
+    END;
+    CALL EVAL_RETCODE(RETCODE, PROCEDURENAME());
+ END EXECUTE_BASIC_TEST_CASES_SHA256;
+
+ EXECUTE_BASIC_TEST_CASES_SHA384: PROC;
+      DECLARE
+ RETCODE         BIN FIXED(31)  INIT(0),
+ TEST_STR1_H384  TYPE SHA384_DIGEST_TYPE STATIC
+            INIT(('CA737F1014A48F4C0B6DD43CB177B0AFD9E5169367544C49'X !!
+                  '4011E3317DBF9A509CB1E5DC1E85A941BBEE3D7F2AFBC9B1'X)),
+ TEST_STR2_H384  TYPE SHA384_DIGEST_TYPE STATIC
+            INIT(('ED892481D8272CA6DF370BF706E4D7BC1B5739FA2177AAE6'X !!
+                  'C50E946678718FC67A7AF2819A021C2FC34E91BDB63409D7'X)),
+ TEST_EMPTY_H384 TYPE SHA384_DIGEST_TYPE STATIC
+            INIT(('38B060A751AC96384CD9327EB1B1E36A21FDB71114BE0743'X !!
+                  '4C0CC7BF63F6E1DA274EDEBFE76F65FBD51AD2F14898B95B'X));
+
+    IF SHA384(ADDR(TEST_STR1),STG(TEST_STR1)) <> TEST_STR1_H384 THEN DO;
+       PUT SKIP LIST('Failed test case: #13 - incorrect result.');
+       RETCODE = 4;
+    END;
+    IF SHA384(ADDR(TEST_STR2),STG(TEST_STR2)) <> TEST_STR2_H384 THEN DO;
+       PUT SKIP LIST('Failed test case: #14 - incorrect result.');
+       RETCODE = 4;
+    END;
+    IF SHA2(SHA2_384,
+            ADDR(TEST_STR1),STG(TEST_STR1)) <> TEST_STR1_H384 THEN DO;
+       PUT SKIP LIST('Failed test case: #15 - incorrect result.');
+       RETCODE = 4;
+    END;
+    IF SHA2(SHA2_384,
+            ADDR(TEST_STR2),STG(TEST_STR2)) <> TEST_STR2_H384 THEN DO;
+       PUT SKIP LIST('Failed test case: #16 - incorrect result.');
+       RETCODE = 4;
+    END;
+    IF SHA384(NULL(), 0) <> TEST_EMPTY_H384 THEN DO;
+       PUT SKIP LIST('Failed test case: #17 - incorrect result.');
+       RETCODE = 4;
+    END;
+    IF SHA2(SHA2_384, NULL(), 0) <> TEST_EMPTY_H384 THEN DO;
+       PUT SKIP LIST('Failed test case: #18 - incorrect result.');
+       RETCODE = 4;
+    END;
+    CALL EVAL_RETCODE(RETCODE, PROCEDURENAME());
+ END EXECUTE_BASIC_TEST_CASES_SHA384;
+
+ EXECUTE_BASIC_TEST_CASES_SHA512: PROC;
+      DECLARE
+ RETCODE         BIN FIXED(31)  INIT(0),
+ TEST_STR1_H512  TYPE SHA512_DIGEST_TYPE STATIC
+                            INIT(('07E547D9586F6A73F73FBAC0435ED769'X !!
+                                  '51218FB7D0C8D788A309D785436BBB64'X !!
+                                  '2E93A252A954F23912547D1E8A3B5ED6'X !!
+                                  'E1BFD7097821233FA0538F3DB854FEE6'X)),
+ TEST_STR2_H512  TYPE SHA512_DIGEST_TYPE STATIC
+                            INIT(('91EA1245F20D46AE9A037A989F54F1F7'X !!
+                                  '90F0A47607EEB8A14D12890CEA77A1BB'X !!
+                                  'C6C7ED9CF205E67B7F2B8FD4C7DFD3A7'X !!
+                                  'A8617E45F3C463D481C7E586C39AC1ED'X)),
+ TEST_EMPTY_H512 TYPE SHA512_DIGEST_TYPE STATIC
+                            INIT(('CF83E1357EEFB8BDF1542850D66D8007'X !!
+                                  'D620E4050B5715DC83F4A921D36CE9CE'X !!
+                                  '47D0D13C5D85F2B0FF8318D2877EEC2F'X !!
+                                  '63B931BD47417A81A538327AF927DA3E'X));
+
+    IF SHA512(ADDR(TEST_STR1),STG(TEST_STR1)) <> TEST_STR1_H512 THEN DO;
+       PUT SKIP LIST('Failed test case: #19 - incorrect result.');
+       RETCODE = 4;
+    END;
+    IF SHA512(ADDR(TEST_STR2),STG(TEST_STR2)) <> TEST_STR2_H512 THEN DO;
+       PUT SKIP LIST('Failed test case: #20 - incorrect result.');
+       RETCODE = 4;
+    END;
+    IF SHA2(SHA2_512,
+            ADDR(TEST_STR1),STG(TEST_STR1)) <> TEST_STR1_H512 THEN DO;
+       PUT SKIP LIST('Failed test case: #21 - incorrect result.');
+       RETCODE = 4;
+    END;
+    IF SHA2(SHA2_512,
+            ADDR(TEST_STR2),STG(TEST_STR2)) <> TEST_STR2_H512 THEN DO;
+       PUT SKIP LIST('Failed test case: #22 - incorrect result.');
+       RETCODE = 4;
+    END;
+    IF SHA512(NULL(), 0) <> TEST_EMPTY_H512 THEN DO;
+       PUT SKIP LIST('Failed test case: #23 - incorrect result.');
+       RETCODE = 4;
+    END;
+    IF SHA2(SHA2_512, NULL(), 0) <> TEST_EMPTY_H512 THEN DO;
+       PUT SKIP LIST('Failed test case: #24 - incorrect result.');
+       RETCODE = 4;
+    END;
+    CALL EVAL_RETCODE(RETCODE, PROCEDURENAME());
+ END EXECUTE_BASIC_TEST_CASES_SHA512;
+
+ EXECUTE_BASIC_TEST_CASES_SHA512_224: PROC;
+      DECLARE
+ RETCODE         BIN FIXED(31)  INIT(0),
+ TEST_STR1_H512_224  TYPE SHA512_224_DIGEST_TYPE STATIC
+                                INIT(('944CD2847FB54558D4775DB0485A'X !!
+                                      '50003111C8E5DAA63FE722C6AA37'X)),
+ TEST_STR2_H512_224  TYPE SHA512_224_DIGEST_TYPE STATIC
+                                INIT(('6D6A9279495EC4061769752E7FF9'X !!
+                                      'C68B6B0B3C5A281B7917CE0572DE'X)),
+ TEST_EMPTY_H512_224 TYPE SHA512_224_DIGEST_TYPE STATIC
+                                INIT(('6ED0DD02806FA89E25DE060C19D3'X !!
+                                      'AC86CABB87D6A0DDD05C333B84F4'X));
+
+    IF SHA512_224(ADDR(TEST_STR1),STG(TEST_STR1)) <>
+       TEST_STR1_H512_224 THEN DO;
+       PUT SKIP LIST('Failed test case: #25 - incorrect result.');
+       RETCODE = 4;
+    END;
+    IF SHA512_224(ADDR(TEST_STR2),STG(TEST_STR2)) <>
+       TEST_STR2_H512_224 THEN DO;
+       PUT SKIP LIST('Failed test case: #26 - incorrect result.');
+       RETCODE = 4;
+    END;
+    IF SHA2(SHA2_512_224, ADDR(TEST_STR1),STG(TEST_STR1)) <>
+       TEST_STR1_H512_224 THEN DO;
+       PUT SKIP LIST('Failed test case: #27 - incorrect result.');
+       RETCODE = 4;
+    END;
+    IF SHA2(SHA2_512_224, ADDR(TEST_STR2),STG(TEST_STR2)) <>
+       TEST_STR2_H512_224 THEN DO;
+       PUT SKIP LIST('Failed test case: #28 - incorrect result.');
+       RETCODE = 4;
+    END;
+    IF SHA512_224(NULL(), 0) <> TEST_EMPTY_H512_224 THEN DO;
+       PUT SKIP LIST('Failed test case: #29 - incorrect result.');
+       RETCODE = 4;
+    END;
+    IF SHA2(SHA2_512_224, NULL(), 0) <> TEST_EMPTY_H512_224 THEN DO;
+       PUT SKIP LIST('Failed test case: #30 - incorrect result.');
+       RETCODE = 4;
+    END;
+    CALL EVAL_RETCODE(RETCODE, PROCEDURENAME());
+ END EXECUTE_BASIC_TEST_CASES_SHA512_224;
+
+ EXECUTE_BASIC_TEST_CASES_SHA512_256: PROC;
+      DECLARE
+ RETCODE         BIN FIXED(31)  INIT(0),
+ TEST_STR1_H512_256  TYPE SHA512_256_DIGEST_TYPE STATIC
+                            INIT(('DD9D67B371519C339ED8DBD25AF90E97'X !!
+                                  '6A1EEEFD4AD3D889005E532FC5BEF04D'X)),
+ TEST_STR2_H512_256  TYPE SHA512_256_DIGEST_TYPE STATIC
+                            INIT(('1546741840F8A492B959D9B8B2344B9B'X !!
+                                  '0EB51B004BBA35C0AEBAAC86D45264C3'X)),
+ TEST_EMPTY_H512_256 TYPE SHA512_256_DIGEST_TYPE STATIC
+                            INIT(('C672B8D1EF56ED28AB87C3622C511406'X !!
+                                  '9BDD3AD7B8F9737498D0C01ECEF0967A'X));
+
+    IF SHA512_256(ADDR(TEST_STR1),STG(TEST_STR1)) <>
+       TEST_STR1_H512_256 THEN DO;
+       PUT SKIP LIST('Failed test case: #31 - incorrect result.');
+       RETCODE = 4;
+    END;
+    IF SHA512_256(ADDR(TEST_STR2),STG(TEST_STR2)) <>
+       TEST_STR2_H512_256 THEN DO;
+       PUT SKIP LIST('Failed test case: #32 - incorrect result.');
+       RETCODE = 4;
+    END;
+    IF SHA2(SHA2_512_256, ADDR(TEST_STR1),STG(TEST_STR1)) <>
+       TEST_STR1_H512_256 THEN DO;
+       PUT SKIP LIST('Failed test case: #33 - incorrect result.');
+       RETCODE = 4;
+    END;
+    IF SHA2(SHA2_512_256, ADDR(TEST_STR2),STG(TEST_STR2)) <>
+       TEST_STR2_H512_256 THEN DO;
+       PUT SKIP LIST('Failed test case: #34 - incorrect result.');
+       RETCODE = 4;
+    END;
+    IF SHA512_256(NULL(), 0) <> TEST_EMPTY_H512_256 THEN DO;
+       PUT SKIP LIST('Failed test case: #35 - incorrect result.');
+       RETCODE = 4;
+    END;
+    IF SHA2(SHA2_512_256, NULL(), 0) <> TEST_EMPTY_H512_256 THEN DO;
+       PUT SKIP LIST('Failed test case: #36 - incorrect result.');
+       RETCODE = 4;
+    END;
+    CALL EVAL_RETCODE(RETCODE, PROCEDURENAME());
+ END EXECUTE_BASIC_TEST_CASES_SHA512_256;
+
+ EVAL_RETCODE: PROC(RETCODE, TESTCASE_NAME);
+      DECLARE
+ RETCODE         BIN FIXED(31),
+ TESTCASE_NAME   VAR CHAR(80);
+
+    IF RETCODE = 0 THEN DO;
+       PUT EDIT(TESTCASE_NAME, ' -> OK')
+               (SKIP, A,A);
+    END;
+    ELSE DO;
+       PUT EDIT(TESTCASE_NAME, ' -> not ok !!!!!')
+               (SKIP, A,A);
+       CALL PLIRETC(RETCODE);
+    END;
+ END EVAL_RETCODE;
+
+ CALCULATE_SHA224_CHECKSUM_OF_FILE: PROC(FILE_VAR);
+      DECLARE
+ FILE_VAR         FILE VARIABLE;
+      DECLARE
+ EOF              BIT(1)         INIT('0'B),
+ RECORD           VAR CHAR(32767),
+ RECORD_DATA_PTR  POINTER        INIT((ADDR(RECORD) + 2));
+      DECLARE
+ 1 SHA224_CTX     TYPE SHA224_CTX_TYPE,
+ SHA224_CTX_PTR   POINTER  INIT(ADDR(SHA224_CTX)),
+ 1 SHA224_DIGEST  TYPE SHA224_DIGEST_TYPE;
+
+    ON ENDFILE(FILE_VAR) EOF = '1'B;
+    OPEN FILE(FILE_VAR);
+    CALL SHA224_BEGIN(SHA224_CTX_PTR);
+    READ FILE(FILE_VAR) INTO(RECORD);
+    DO WHILE(^EOF);
+       CALL SHA256_HASH(RECORD_DATA_PTR,
+                        LENGTH(RECORD),
+                        SHA224_CTX_PTR);
+       READ FILE(FILE_VAR) INTO(RECORD);
+    END;
+    CLOSE FILE(FILE_VAR);
+    SHA224_DIGEST = SHA224_END(SHA224_CTX_PTR);
+    PUT EDIT('SHA224 checksum of the file : ',
+             HEX(SHA224_DIGEST))
+            (SKIP, A,
+             SKIP, A);
+ END CALCULATE_SHA224_CHECKSUM_OF_FILE;
+
+ CALCULATE_SHA256_CHECKSUM_OF_FILE: PROC(FILE_VAR);
+      DECLARE
+ FILE_VAR         FILE VARIABLE;
+      DECLARE
+ EOF              BIT(1)         INIT('0'B),
+ RECORD           VAR CHAR(32767),
+ RECORD_DATA_PTR  POINTER        INIT((ADDR(RECORD) + 2));
+      DECLARE
+ 1 SHA256_CTX     TYPE SHA256_CTX_TYPE,
+ SHA256_CTX_PTR   POINTER  INIT(ADDR(SHA256_CTX)),
+ 1 SHA256_DIGEST  TYPE SHA256_DIGEST_TYPE;
+
+    ON ENDFILE(FILE_VAR) EOF = '1'B;
+    OPEN FILE(FILE_VAR);
+    CALL SHA256_BEGIN(SHA256_CTX_PTR);
+    READ FILE(FILE_VAR) INTO(RECORD);
+    DO WHILE(^EOF);
+       CALL SHA256_HASH(RECORD_DATA_PTR,
+                        LENGTH(RECORD),
+                        SHA256_CTX_PTR);
+       READ FILE(FILE_VAR) INTO(RECORD);
+    END;
+    CLOSE FILE(FILE_VAR);
+    SHA256_DIGEST = SHA256_END(SHA256_CTX_PTR);
+    PUT EDIT('SHA256 checksum of the file : ',
+             HEX(SHA256_DIGEST))
+            (SKIP, A,
+             SKIP, A);
+ END CALCULATE_SHA256_CHECKSUM_OF_FILE;
+
+ CALCULATE_SHA384_CHECKSUM_OF_FILE: PROC(FILE_VAR);
+      DECLARE
+ FILE_VAR         FILE VARIABLE;
+      DECLARE
+ EOF              BIT(1)         INIT('0'B),
+ RECORD           VAR CHAR(32767),
+ RECORD_DATA_PTR  POINTER        INIT((ADDR(RECORD) + 2));
+      DECLARE
+ 1 SHA384_CTX     TYPE SHA384_CTX_TYPE,
+ SHA384_CTX_PTR   POINTER  INIT(ADDR(SHA384_CTX)),
+ 1 SHA384_DIGEST  TYPE SHA384_DIGEST_TYPE;
+
+    ON ENDFILE(FILE_VAR) EOF = '1'B;
+    OPEN FILE(FILE_VAR);
+    CALL SHA384_BEGIN(SHA384_CTX_PTR);
+    READ FILE(FILE_VAR) INTO(RECORD);
+    DO WHILE(^EOF);
+       CALL SHA512_HASH(RECORD_DATA_PTR,
+                        LENGTH(RECORD),
+                        SHA384_CTX_PTR);
+       READ FILE(FILE_VAR) INTO(RECORD);
+    END;
+    CLOSE FILE(FILE_VAR);
+    SHA384_DIGEST = SHA384_END(SHA384_CTX_PTR);
+    PUT EDIT('SHA384 checksum of the file : ',
+             HEX(SHA384_DIGEST))
+            (SKIP, A,
+             SKIP, A);
+ END CALCULATE_SHA384_CHECKSUM_OF_FILE;
+
+ CALCULATE_SHA512_CHECKSUM_OF_FILE: PROC(FILE_VAR);
+      DECLARE
+ FILE_VAR         FILE VARIABLE;
+      DECLARE
+ EOF              BIT(1)         INIT('0'B),
+ RECORD           VAR CHAR(32767),
+ RECORD_DATA_PTR  POINTER        INIT((ADDR(RECORD) + 2));
+      DECLARE
+ 1 SHA512_CTX     TYPE SHA512_CTX_TYPE,
+ SHA512_CTX_PTR   POINTER  INIT(ADDR(SHA512_CTX)),
+ 1 SHA512_DIGEST  TYPE SHA512_DIGEST_TYPE;
+
+    ON ENDFILE(FILE_VAR) EOF = '1'B;
+    OPEN FILE(FILE_VAR);
+    CALL SHA512_BEGIN(SHA512_CTX_PTR);
+    READ FILE(FILE_VAR) INTO(RECORD);
+    DO WHILE(^EOF);
+       CALL SHA512_HASH(RECORD_DATA_PTR,
+                        LENGTH(RECORD),
+                        SHA512_CTX_PTR);
+       READ FILE(FILE_VAR) INTO(RECORD);
+    END;
+    CLOSE FILE(FILE_VAR);
+    SHA512_DIGEST = SHA512_END(SHA512_CTX_PTR);
+    PUT EDIT('SHA512 checksum of the file : ',
+             HEX(SHA512_DIGEST))
+            (SKIP, A,
+             SKIP, A);
+ END CALCULATE_SHA512_CHECKSUM_OF_FILE;
+
+ CALCULATE_SHA512_224_CHECKSUM_OF_FILE: PROC(FILE_VAR);
+      DECLARE
+ FILE_VAR         FILE VARIABLE;
+      DECLARE
+ EOF              BIT(1)         INIT('0'B),
+ RECORD           VAR CHAR(32767),
+ RECORD_DATA_PTR  POINTER        INIT((ADDR(RECORD) + 2));
+      DECLARE
+ 1 SHA512_224_CTX     TYPE SHA512_224_CTX_TYPE,
+ SHA512_224_CTX_PTR   POINTER  INIT(ADDR(SHA512_224_CTX)),
+ 1 SHA512_224_DIGEST  TYPE SHA512_224_DIGEST_TYPE;
+
+    ON ENDFILE(FILE_VAR) EOF = '1'B;
+    OPEN FILE(FILE_VAR);
+    CALL SHA512_224_BEGIN(SHA512_224_CTX_PTR);
+    READ FILE(FILE_VAR) INTO(RECORD);
+    DO WHILE(^EOF);
+       CALL SHA512_224_HASH(RECORD_DATA_PTR,
+                        LENGTH(RECORD),
+                        SHA512_224_CTX_PTR);
+       READ FILE(FILE_VAR) INTO(RECORD);
+    END;
+    CLOSE FILE(FILE_VAR);
+    SHA512_224_DIGEST = SHA512_224_END(SHA512_224_CTX_PTR);
+    PUT EDIT('SHA512_224 checksum of the file : ',
+             HEX(SHA512_224_DIGEST))
+            (SKIP, A,
+             SKIP, A);
+ END CALCULATE_SHA512_224_CHECKSUM_OF_FILE;
+
+ CALCULATE_SHA512_256_CHECKSUM_OF_FILE: PROC(FILE_VAR);
+      DECLARE
+ FILE_VAR         FILE VARIABLE;
+      DECLARE
+ EOF              BIT(1)         INIT('0'B),
+ RECORD           VAR CHAR(32767),
+ RECORD_DATA_PTR  POINTER        INIT((ADDR(RECORD) + 2));
+      DECLARE
+ 1 SHA512_256_CTX     TYPE SHA512_256_CTX_TYPE,
+ SHA512_256_CTX_PTR   POINTER  INIT(ADDR(SHA512_256_CTX)),
+ 1 SHA512_256_DIGEST  TYPE SHA512_256_DIGEST_TYPE;
+
+    ON ENDFILE(FILE_VAR) EOF = '1'B;
+    OPEN FILE(FILE_VAR);
+    CALL SHA512_256_BEGIN(SHA512_256_CTX_PTR);
+    READ FILE(FILE_VAR) INTO(RECORD);
+    DO WHILE(^EOF);
+       CALL SHA512_256_HASH(RECORD_DATA_PTR,
+                        LENGTH(RECORD),
+                        SHA512_256_CTX_PTR);
+       READ FILE(FILE_VAR) INTO(RECORD);
+    END;
+    CLOSE FILE(FILE_VAR);
+    SHA512_256_DIGEST = SHA512_256_END(SHA512_256_CTX_PTR);
+    PUT EDIT('SHA512_256 checksum of the file : ',
+             HEX(SHA512_256_DIGEST))
+            (SKIP, A,
+             SKIP, A);
+ END CALCULATE_SHA512_256_CHECKSUM_OF_FILE;
+
+ CALCULATE_SHA2_CHECKSUMS_OF_FILE: PROC(FILE_VAR);
+      DECLARE
+ FILE_VAR       FILE VARIABLE;
+      DECLARE
+ EOF              BIT(1),
+ RECORD           VAR CHAR(32767),
+ RECORD_DATA_PTR  POINTER        INIT((ADDR(RECORD) + 2));
+      DECLARE
+ SHA2_FUNCTION  ORDINAL SHA2_FUNCTIONS,
+ SHA2_CTX_PTR   POINTER  INIT(ADDR(SHA2_CTX)),
+ 1 SHA2_CTX     TYPE SHA2_CTX_TYPE,
+ SHA2_DIGEST    TYPE SHA2_DIGEST_TYPE;
+
+    DO SHA2_FUNCTION = FIRST(:SHA2_FUNCTIONS:)
+                       REPEAT ORDINALSUCC(SHA2_FUNCTION)
+                       UNTIL(SHA2_FUNCTION = LAST(:SHA2_FUNCTIONS:));
+       EOF = '0'B;
+       ON ENDFILE(FILE_VAR) EOF = '1'B;
+       OPEN FILE(FILE_VAR);
+       CALL SHA2_BEGIN(SHA2_FUNCTION, SHA2_CTX_PTR);
+       READ FILE(FILE_VAR) INTO(RECORD);
+       DO WHILE(^EOF);
+          CALL SHA2_HASH(SHA2_FUNCTION,
+                         RECORD_DATA_PTR,
+                         LENGTH(RECORD),
+                         SHA2_CTX_PTR);
+          READ FILE(FILE_VAR) INTO(RECORD);
+       END;
+       CLOSE FILE(FILE_VAR);
+       SHA2_DIGEST = SHA2_END(SHA2_FUNCTION, SHA2_CTX_PTR);
+       PUT EDIT(ORDINALNAME(SHA2_FUNCTION),
+                ' checksum of the file : ',
+                HEXIMAGE(ADDR(SHA2_DIGEST) + 2, LENGTH(SHA2_DIGEST)))
+               (SKIP, A,A,
+                SKIP, A);
+    END;
+ END CALCULATE_SHA2_CHECKSUMS_OF_FILE;
+
+ SHA2_PERFORMANCE_TESTS: PROC;
+      DECLARE
+ SHA2_FUNCTION  ORDINAL SHA2_FUNCTIONS;
+
+    DO SHA2_FUNCTION = FIRST(:SHA2_FUNCTIONS:)
+                       REPEAT ORDINALSUCC(SHA2_FUNCTION)
+                       UNTIL(SHA2_FUNCTION = LAST(:SHA2_FUNCTIONS:));
+       CALL SHA2_PERFORMANCE_TEST(SHA2_FUNCTION, 100);
+    END;
+ END SHA2_PERFORMANCE_TESTS;
+
+ SHA2_PERFORMANCE_TEST: PROC(SHA2_FUNCTION, SIZE_IN_MB);
+      DECLARE
+ SHA2_FUNCTION  ORDINAL SHA2_FUNCTIONS,
+ SIZE_IN_MB     BIN FIXED(32) UNSIGNED;
+      DECLARE
+ SHA2_CTX_PTR   POINTER  INIT(ADDR(SHA2_CTX)),
+ 1 SHA2_CTX     TYPE SHA2_CTX_TYPE,
+ SHA2_DIGEST    TYPE SHA2_DIGEST_TYPE,
+ DATA_LEN       BIN FIXED(32) UNSIGNED  VALUE(1024 * 1024), /* 1 MB */
+ DATA_PTR       POINTER                 INIT(AUTOMATIC(DATA_LEN)),
+ DATA(1)        BIN FIXED( 8) UNSIGNED  BASED(DATA_PTR),
+ (I)            BIN FIXED(32) UNSIGNED,
+ (B)            BIN FIXED( 8) UNSIGNED  INIT(0),
+ START_TIME     CHAR(9);
+
+    DO I = 1 TO DATA_LEN;
+       DATA(I) = B;
+       B += 1;
+    END;
+    START_TIME = TIME();
+    CALL SHA2_BEGIN(SHA2_FUNCTION, SHA2_CTX_PTR);
+    DO I = 1 TO SIZE_IN_MB;
+       CALL SHA2_HASH(SHA2_FUNCTION, DATA_PTR, DATA_LEN, SHA2_CTX_PTR);
+       END;
+    SHA2_DIGEST = SHA2_END(SHA2_FUNCTION, SHA2_CTX_PTR);
+    CALL PROTOCOL_EXECUTION_PERFORMANCE(ORDINALNAME(SHA2_FUNCTION),
+                                        START_TIME,
+                                        SIZE_IN_MB);
+ END SHA2_PERFORMANCE_TEST;
+
+ EXECUTE_BASIC_TEST_CASES_CRC32: PROC;
+      DECLARE
+ RETCODE           BIN FIXED(31)  INIT(0),
+ TEST_STR1_CRC32   BIN FIXED(31)  INIT('414FA339'XN),
+ TEST_STR2_CRC32   BIN FIXED(31)  INIT('519025E9'XN),
+ TEST_EMPTY_CRC32  BIN FIXED(31)  INIT('00000000'XN);
+
+    IF CRC32_CHR(TEST_STR1) <> TEST_STR1_CRC32 THEN DO;
+       PUT SKIP LIST('Failed test case: #37 - incorrect result.');
+       RETCODE = 4;
+    END;
+    IF CRC32_CHR(TEST_STR2) <> TEST_STR2_CRC32 THEN DO;
+       PUT SKIP LIST('Failed test case: #38 - incorrect result.');
+       RETCODE = 4;
+    END;
+    IF CRC32_CHR('') <> TEST_EMPTY_CRC32 THEN DO;
+       PUT SKIP LIST('Failed test case: #39 - incorrect result.');
+       RETCODE = 4;
+    END;
+    CALL EVAL_RETCODE(RETCODE, PROCEDURENAME());
+ END EXECUTE_BASIC_TEST_CASES_CRC32;
+
+ CRC32_PERFORMANCE_TEST: PROC(SIZE_IN_MB);
+      DECLARE
+ SIZE_IN_MB     BIN FIXED(32) UNSIGNED;
+      DECLARE
+ CRC32_RES      BIN FIXED(31),
+ DATA_LEN       BIN FIXED(32) UNSIGNED  VALUE(1024 * 1024), /* 1 MB */
+ DATA_PTR       POINTER                 INIT(AUTOMATIC(DATA_LEN)),
+ DATA(1)        BIN FIXED( 8) UNSIGNED  BASED(DATA_PTR),
+ (I)            BIN FIXED(32) UNSIGNED,
+ (B)            BIN FIXED( 8) UNSIGNED  INIT(0),
+ START_TIME     CHAR(9);
+
+    DO I = 1 TO DATA_LEN;
+       DATA(I) = B;
+       B += 1;
+    END;
+    START_TIME = TIME();
+    DO I = 1 TO SIZE_IN_MB;
+       CRC32_RES = CRC32(DATA_PTR, DATA_LEN);                           );
+       END;
+    CALL PROTOCOL_EXECUTION_PERFORMANCE('CRC32',
+                                        START_TIME,
+                                        SIZE_IN_MB);
+ END CRC32_PERFORMANCE_TEST;
+
+ EXECUTE_BASIC_TEST_CASES_SIPHASH64: PROC;
+      DECLARE
+ RETCODE             BIN FIXED(31)  INIT(0);
+ /* the results can be checked with online.                           */
+ /* see: https://duzun.me/playground/hash#siphash=                    */
+      DECLARE
+ TEST_STR1_SIPHASH   BIN FIXED(64) UNSIGNED  INIT('ACBABF325FD42179'XU),
+ TEST_STR2_SIPHASH   BIN FIXED(64) UNSIGNED  INIT('41B1299BAE1869D5'XU),
+ TEST_EMPTY_SIPHASH  BIN FIXED(64) UNSIGNED  INIT('67E54C7F1769CB30'XU);
+
+    IF SIPHASH64_KEY(ADDR(TEST_STR1), STG(TEST_STR1), SIPHASH_KEY) <>
+       TEST_STR1_SIPHASH THEN DO;
+       PUT SKIP LIST('Failed test case: #40 - incorrect result.');
+       RETCODE = 4;
+       END;
+    IF SIPHASH64_KEY(ADDR(TEST_STR2), STG(TEST_STR2), SIPHASH_KEY) <>
+       TEST_STR2_SIPHASH THEN DO;
+       PUT SKIP LIST('Failed test case: #41 - incorrect result.');
+       RETCODE = 4;
+       END;
+    IF SIPHASH64_KEY(ADDR(TEST_STR1), 0, SIPHASH_KEY) <>
+       TEST_EMPTY_SIPHASH THEN DO;
+       PUT SKIP LIST('Failed test case: #42 - incorrect result.');
+       RETCODE = 4;
+       END;
+    CALL EVAL_RETCODE(RETCODE, PROCEDURENAME());
+ END EXECUTE_BASIC_TEST_CASES_SIPHASH64;
+
+ SIPHASH64_PERFORMANCE_TEST: PROC(SIZE_IN_MB);
+      DECLARE
+ SIZE_IN_MB     BIN FIXED(32) UNSIGNED;
+      DECLARE
+ SIPHASH64_RES  BIN FIXED(64) UNSIGNED,
+ DATA_LEN       BIN FIXED(32) UNSIGNED  VALUE(1024 * 1024), /* 1 MB */
+ DATA_PTR       POINTER                 INIT(AUTOMATIC(DATA_LEN)),
+ DATA(1)        BIN FIXED( 8) UNSIGNED  BASED(DATA_PTR),
+ (I)            BIN FIXED(32) UNSIGNED,
+ (B)            BIN FIXED( 8) UNSIGNED  INIT(0),
+ START_TIME     CHAR(9);
+
+    DO I = 1 TO DATA_LEN;
+       DATA(I) = B;
+       B += 1;
+    END;
+    START_TIME = TIME();
+    DO I = 1 TO SIZE_IN_MB;
+       SIPHASH64_RES = SIPHASH64(DATA_PTR, DATA_LEN);                   );
+       END;
+    CALL PROTOCOL_EXECUTION_PERFORMANCE('SIPHASH64',
+                                        START_TIME,
+                                        SIZE_IN_MB);
+ END SIPHASH64_PERFORMANCE_TEST;
+
+ PROTOCOL_EXECUTION_PERFORMANCE: PROC(HASH_FUNCTION,
+                                    START_TIME,
+                                    SIZE_IN_MB);
+      DECLARE
+ HASH_FUNCTION  VAR CHAR(20),
+ START_TIME     CHAR(9),
+ SIZE_IN_MB     BIN FIXED(32) UNSIGNED;
+      DECLARE
+ DTIME_CHR      CHAR(12),
+ DTIME_DEC      DEC FIXED(9);
+
+    DTIME_DEC = CALC_TIME_DIF(START_TIME, TIME());
+    DTIME_CHR = FORMAT_TIME_DIF(DTIME_DEC);
+    PUT EDIT('EXECUTION TIME: ' , DTIME_CHR,
+             ' SPEED: '        , DIVIDE(1000*SIZE_IN_MB, DTIME_DEC, 7,2)
+                                                            , ' MB/sec',
+             ' SIZE: '         , SIZE_IN_MB, ' MB',
+             ' HASH FUNCTION: ', HASH_FUNCTION)
+            (SKIP, A,A,
+                   A,F(7,2),A,
+                   A,F(5),A,
+                   A,A);
+ END PROTOCOL_EXECUTION_PERFORMANCE;
+ /*********************************************************************/
+ /*   CALCULATE TIME DIFFERENCE IN MILLISECONDS                       */
+ /*********************************************************************/
+ CALC_TIME_DIF: PROC(STARTTIME, ENDETIME) RETURNS(DEC FIXED(9));
+      DECLARE
+ STARTTIME     CHAR(9),       /* HHMMSSTTT    */
+ ENDETIME      CHAR(9),       /* HHMMSSTTT    */
+ DIFFERENCE    DEC FIXED(9);  /* MILLISECONDS */
+      DECLARE
+ SZ            DEC FIXED(9),
+ EZ            DEC FIXED(9),
+ CHR9          CHAR(9),
+ 1 TIME     BASED(ADDR(CHR9)),
+   3 HH        PIC 'ZZ',
+   3 MM        PIC 'ZZ',
+   3 SS        PIC 'ZZ',
+   3 TTT       PIC 'ZZZ';
+
+    CHR9 = STARTTIME;
+    SZ   = ((HH*60.0 + MM)*60.0 + SS)*1000.0 + TTT;
+    IF SZ > 86400000.0 /* 1 DAY */ THEN DO;
+       DIFFERENCE = -999999999.0;
+       END;
+    ELSE DO;
+       CHR9 = ENDETIME;
+       EZ   = ((HH*60.0 + MM)*60.0 + SS)*1000.0 + TTT;
+       IF EZ > 86400000.0 /* 1 DAY */ THEN DO;
+          DIFFERENCE = -999999999.0;
+          END;
+       ELSE DO;
+          /* DIFFERENCE */
+          IF EZ < SZ THEN EZ = EZ + 86400000.0;
+          DIFFERENCE = EZ - SZ;
+          END;
+       END;
+    RETURN (DIFFERENCE);
+ END CALC_TIME_DIF;
+
+ FORMAT_TIME_DIF: PROC(TIME) RETURNS(CHAR(12));
+      DECLARE
+ TIME          DEC FIXED(9),
+ TIMECHR       CHAR(12);  /* HH:MM:SS.TTT */
+      DECLARE
+ CHR6          CHAR(6),
+ CHR9          CHAR(9),
+ PICHH         PIC'Z9',
+ PIC2          PIC'(2)9',
+ PIC6          PIC'(6)Z'  BASED(ADDR(CHR6)),
+ PIC9          PIC'(9)9'  BASED(ADDR(CHR9)),
+ (HF1,HF2)     DEC FIXED(9),
+ (HF3,HF4)     DEC FIXED(9);
+
+    IF TIME > 359999999.0 ! TIME < 0 THEN DO;
+       TIMECHR = 'HH:MM:SS.TTT';
+       END;
+    ELSE DO;
+       PIC9 = TIME;
+       CHR6 = SUBSTR(CHR9,1,6);
+       HF4  = PIC6;
+       HF1  = HF4 / 3600.0;       /* HH */
+       HF4  = HF4 - (HF1 * 3600.0);
+       HF2  = HF4 / 60.0;         /* MM */
+       HF3  = HF4 - (HF2 * 60.0); /* SS */
+       PICHH = HF1;
+       SUBSTR(TIMECHR,1,3) = PICHH !! ':';
+       PIC2 = HF2;
+       SUBSTR(TIMECHR,4,3) = PIC2  !! ':';
+       PIC2 = HF3;
+       SUBSTR(TIMECHR,7,3) = PIC2  !! '.';
+       SUBSTR(TIMECHR,10,3)= SUBSTR(CHR9,7,3);
+       END;
+    RETURN (TIMECHR);
+ END FORMAT_TIME_DIF;
+ /*********************************************************************/
+ /*   INTERNAL SUBROUTINES                                            */
+ /*********************************************************************/
+ %INCLUDE U(CRC32);     /* CALCULATE CRC32 CHECKSUM                   */
+ %INCLUDE U(SHA2);      /* PL/I IMPLEMENTATION OF THE SHA2 ALGORITHM  */
+ %INCLUDE U(SIPHASH);   /* CALCULATE SIPHASH                          */
+ HASH_END:  END HASH;

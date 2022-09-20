@@ -1,0 +1,1206 @@
+ /*********************************************************************/
+ /*   PL/I IMPLEMENTATION OF THE SHA2 ALGORITHM                       */
+ /*********************************************************************/
+ /* both parameters must be numerical constants                       */
+ %PPM_MOD: PROC(N, I) STATEMENT RETURNS (CHAR);
+      DECLARE
+ (N,I)           CHAR,
+ (DECN,DECI)     FIXED,
+ (MACNAME,TRIM)  BUILTIN;
+
+    IF PPM_IS_PARM_EMPTY(N) THEN
+       RETURN(PPM_ERROR(MACNAME(), 'Parameter missing (N)'));
+    IF PPM_IS_PARM_EMPTY(I) THEN
+       RETURN(PPM_ERROR(MACNAME(), 'Parameter missing (I)'));
+    N = TRIM(N);
+    I = TRIM(I);
+    IF PPM_IS_NUMERIC_VORZ(N) = 0 THEN
+       RETURN(PPM_ERROR(MACNAME(), 'Parameter N='!!N!!' not numeric'));
+    IF PPM_IS_NUMERIC_VORZ(I) = 0 THEN
+       RETURN(PPM_ERROR(MACNAME(), 'Parameter I='!!I!!' not numeric'));
+    DECN = N;
+    DECI = I;
+    SELECT(I);
+       WHEN(8, 16);
+       OTHER RETURN(PPM_ERROR(MACNAME(),'Parameter I='!!I!!' INVALID'));
+    END;
+    DO WHILE(DECN < 0);
+       DECN += DECI;
+    END;
+    DO WHILE(DECN >= DECI);
+       DECN -= DECI;
+    END;
+    RETURN(TRIM(DECN));
+ %END;
+
+ /* Original code in c:                                               */
+ /*      #define rotr32(x,n)   (((x) >> n) | ((x) << (32 - n)))       */
+ %PPM_ROTR32: PROC(X, N) STATEMENT RETURNS (CHAR);
+      DECLARE
+ (X,N)           CHAR,
+ ZW_32_MINUS_N   FIXED,
+ M               CHAR,
+ (MACNAME,TRIM)  BUILTIN;
+
+    IF PPM_IS_PARM_EMPTY(X) THEN
+       RETURN(PPM_ERROR(MACNAME(), 'Parameter missing (X)'));
+    IF PPM_IS_PARM_EMPTY(N) THEN
+       RETURN(PPM_ERROR(MACNAME(), 'Parameter missing (N)'));
+    X = TRIM(X);
+    N = TRIM(N);
+    IF PPM_IS_NUMERIC(N) = 0 THEN
+       RETURN(PPM_ERROR(MACNAME(),'Parameter error: N is not numeric'));
+    ZW_32_MINUS_N = N;
+    ZW_32_MINUS_N = 32 - ZW_32_MINUS_N;
+    M             = ZW_32_MINUS_N;
+    M             = TRIM(M);
+    RETURN('IOR(ISRL('!!X!!','!!N!!'),'!!'ISLL('!!X!!','!!M!!'))');
+ %END;
+
+ /* Original code in c:                                               */
+ /*      #define rotr64(x,n)   (((x) >> n) | ((x) << (64 - n)))       */
+ %PPM_ROTR64: PROC(X, N) STATEMENT RETURNS (CHAR);
+      DECLARE
+ (X,N)           CHAR,
+ ZW_64_MINUS_N   FIXED,
+ M               CHAR,
+ (MACNAME,TRIM)  BUILTIN;
+
+    IF PPM_IS_PARM_EMPTY(X) THEN
+       RETURN(PPM_ERROR(MACNAME(), 'Parameter missing (X)'));
+    IF PPM_IS_PARM_EMPTY(N) THEN
+       RETURN(PPM_ERROR(MACNAME(), 'Parameter missing (N)'));
+    X = TRIM(X);
+    N = TRIM(N);
+    IF PPM_IS_NUMERIC(N) = 0 THEN
+       RETURN(PPM_ERROR(MACNAME(), 'Parameter error: N not numeric'));
+    ZW_64_MINUS_N = N;
+    ZW_64_MINUS_N = 64 - ZW_64_MINUS_N;
+    M             = ZW_64_MINUS_N;
+    M             = TRIM(M);
+    RETURN('IOR(ISRL('!!X!!','!!N!!'),'!!'ISLL('!!X!!','!!M!!'))');
+ %END;
+
+ /* Original code in c:                                               */
+ /*      #define ch(x,y,z)       (((x) & (y)) ^ (~(x) & (z)))         */
+ /* optimised code in c:                                              */
+ /*      #define ch(x,y,z)       ((z) ^ ((x) & ((y) ^ (z))))          */
+ %PPM_CH: PROC(X, Y, Z) STATEMENT RETURNS (CHAR);
+      DECLARE
+ (X,Y,Z)         CHAR,
+ (MACNAME,TRIM)  BUILTIN;
+
+    IF PPM_IS_PARM_EMPTY(X) THEN
+       RETURN(PPM_ERROR(MACNAME(), 'Parameter missing (X)'));
+    IF PPM_IS_PARM_EMPTY(Y) THEN
+       RETURN(PPM_ERROR(MACNAME(), 'Parameter missing (Y)'));
+    IF PPM_IS_PARM_EMPTY(Z) THEN
+       RETURN(PPM_ERROR(MACNAME(), 'Parameter missing (Z)'));
+    X = TRIM(X);
+    Y = TRIM(Y);
+    Z = TRIM(Z);
+    RETURN('IEOR('!!Z!!',IAND('!!X!!',IEOR('!!Y!!','!!Z!!')))');
+    RETURN('IEOR(IAND('!!X!!','!!Y!!'),IAND(INOT('!!X!!'),'!!Z!!'))');
+ %END;
+
+ /* Original code in c:                                               */
+ /*      #define maj(x,y,z)      (((x)&(y)) ^ ((x)&(z)) ^ ((y)&(z)))  */
+ /* optimised code in c:                                              */
+ /*      #define maj(x,y,z)      (((x)&(y)) | ((z)&((x) ^ (y))))      */
+ %PPM_MAJ: PROC(X, Y, Z) STATEMENT RETURNS (CHAR);
+      DECLARE
+ (X,Y,Z)         CHAR,
+ (MACNAME,TRIM)  BUILTIN;
+
+    IF PPM_IS_PARM_EMPTY(X) THEN
+       RETURN(PPM_ERROR(MACNAME(), 'Parameter missing (X)'));
+    IF PPM_IS_PARM_EMPTY(Y) THEN
+       RETURN(PPM_ERROR(MACNAME(), 'Parameter missing (Y)'));
+    IF PPM_IS_PARM_EMPTY(Z) THEN
+       RETURN(PPM_ERROR(MACNAME(), 'Parameter missing (Z)'));
+    X = TRIM(X);
+    Y = TRIM(Y);
+    Z = TRIM(Z);
+    RETURN('IOR(IAND('!!X!!','!!Y!!'),'!!
+               'IAND('!!Z!!',IEOR('!!X!!','!!Y!!')))');
+    RETURN('IEOR(IEOR(IAND('!!X!!','!!Y!!'),IAND('!!X!!','!!Z!!
+                     ')),IAND('!!Y!!','!!Z!!'))');
+ %END;
+
+ /* Original code in c:                                               */
+ /*      #define hf(i) (p[i & 15] += \                                */
+ /*                g_1(p[(i+14)&15]) + p[(i+9)&15] + g_0(p[(i+1)&15]))*/
+ %PPM_HF: PROC(I, BIT) STATEMENT RETURNS (CHAR);
+      DECLARE
+ (I, BIT)        CHAR,
+ (MACNAME,TRIM)  BUILTIN;
+
+    IF PPM_IS_PARM_EMPTY(I) THEN
+       RETURN(PPM_ERROR(MACNAME(), 'Parameter missing (I)'));
+    IF PPM_IS_PARM_EMPTY(BIT) THEN
+       RETURN(PPM_ERROR(MACNAME(), 'Parameter missing (BIT)'));
+    I = TRIM(I);
+    IF PPM_IS_NUMERIC(I) = 0 THEN
+       RETURN(PPM_ERROR(MACNAME(),'PARAMETER I="'!!I!!'" not numeric'));
+    RETURN('P('!!PPM_MOD(I, 16)!!')+='        !!
+            PPM_G_1('P('!!PPM_MOD(I+14, 16)!!')', BIT)!!'+'!!
+                    'P('!!PPM_MOD(I+ 9, 16)!!')+'!!
+            PPM_G_0('P('!!PPM_MOD(I+ 1, 16)!!')', BIT));
+ %END;
+
+ /* Original code in c:                                               */
+ /*      #define s_0(x)  (rotr32((x),2)^rotr32((x),13)^rotr32((x),22))*/
+ %PPM_S_0_32: PROC(X) STATEMENT RETURNS (CHAR);
+      DECLARE
+ (X)            CHAR,
+ (MACNAME,TRIM) BUILTIN;
+
+    IF PPM_IS_PARM_EMPTY(X) THEN
+       RETURN(PPM_ERROR(MACNAME(), 'Parameter missing'));
+    X = TRIM(X);
+    RETURN('IEOR(IEOR('!!PPM_ROTR32(X,  2)!!',' !!
+                         PPM_ROTR32(X, 13)!!'),'!!
+                         PPM_ROTR32(X, 22)!!')');
+ %END;
+
+ /* Original code in c:                                               */
+ /*      #define s_0(x) (rotr64((x),28)^rotr64((x),34)^rotr64((x),39))*/
+ %PPM_S_0_64: PROC(X) STATEMENT RETURNS (CHAR);
+      DECLARE
+ (X)             CHAR,
+ (MACNAME,TRIM)  BUILTIN;
+
+    IF PPM_IS_PARM_EMPTY(X) THEN
+       RETURN(PPM_ERROR(MACNAME(), 'Parameter missing'));
+    X = TRIM(X);
+    RETURN('IEOR(IEOR('!!PPM_ROTR64(X, 28)!!',' !!
+                         PPM_ROTR64(X, 34)!!'),'!!
+                         PPM_ROTR64(X, 39)!!')');
+ %END;
+
+ %PPM_S_0: PROC(X, BIT) STATEMENT RETURNS (CHAR);
+      DECLARE
+ (X,BIT)       CHAR,
+ (MACNAME)     BUILTIN;
+
+    IF PPM_IS_PARM_EMPTY(X) THEN
+       RETURN(PPM_ERROR(MACNAME(), 'Parameter missing (X)'));
+    IF PPM_IS_PARM_EMPTY(BIT) THEN
+       RETURN(PPM_ERROR(MACNAME(), 'Parameter missing (BIT)'));
+    SELECT(BIT);
+       WHEN(32) RETURN(PPM_S_0_32(X));
+       WHEN(64) RETURN(PPM_S_0_64(X));
+    END;
+    RETURN(PPM_ERROR(MACNAME(), 'Parameter invalid BIT="'!!BIT!!'"'));
+ %END;
+
+ /* Original code in c:                                               */
+ /*      #define s_1(x)  (rotr32((x),6)^rotr32((x),11)^rotr32((x),25))*/
+ %PPM_S_1_32: PROC(X) STATEMENT RETURNS (CHAR);
+      DECLARE
+ (X)             CHAR,
+ (MACNAME,TRIM)  BUILTIN;
+
+    IF PPM_IS_PARM_EMPTY(X) THEN
+       RETURN(PPM_ERROR(MACNAME(), 'Parameter missing (X)'));
+    X = TRIM(X);
+    RETURN('IEOR(IEOR('!!PPM_ROTR32(X, 6)!!',' !!
+                         PPM_ROTR32(X,11)!!'),'!!
+                         PPM_ROTR32(X,25)!!')');
+ %END;
+
+ /* Original code in c:                                               */
+ /*      #define s_1(x) (rotr64((x),14)^rotr64((x),18)^rotr64((x),41))*/
+ %PPM_S_1_64: PROC(X) STATEMENT RETURNS (CHAR);
+      DECLARE
+ (X)             CHAR,
+ (MACNAME,TRIM)  BUILTIN;
+
+    IF PPM_IS_PARM_EMPTY(X) THEN
+       RETURN(PPM_ERROR(MACNAME(), 'Parameter missing (X)'));
+    X = TRIM(X);
+    RETURN('IEOR(IEOR('!!PPM_ROTR64(X,14)!!',' !!
+                         PPM_ROTR64(X,18)!!'),'!!
+                         PPM_ROTR64(X,41)!!')');
+ %END;
+
+ %PPM_S_1: PROC(X, BIT) STATEMENT RETURNS (CHAR);
+      DECLARE
+ (X,BIT)       CHAR,
+ (MACNAME)     BUILTIN;
+
+    IF PPM_IS_PARM_EMPTY(X) THEN
+       RETURN(PPM_ERROR(MACNAME(), 'Parameter missing (X)'));
+    IF PPM_IS_PARM_EMPTY(BIT) THEN
+       RETURN(PPM_ERROR(MACNAME(), 'Parameter missing (BIT)'));
+    SELECT(BIT);
+       WHEN(32) RETURN(PPM_S_1_32(X));
+       WHEN(64) RETURN(PPM_S_1_64(X));
+    END;
+    RETURN(PPM_ERROR(MACNAME(),
+           'Parameter invalid BIT="' !! BIT !! '"'));
+ %END;
+
+ /* Original code in c:                                               */
+ /*     #define g_0(x)  (rotr32((x),7) ^ rotr32((x),18) ^ ((x)>>3))   */
+ %PPM_G_0_32: PROC(X) STATEMENT RETURNS (CHAR);
+      DECLARE
+ (X)             CHAR,
+ (MACNAME,TRIM)  BUILTIN;
+
+    IF PPM_IS_PARM_EMPTY(X) THEN
+       RETURN(PPM_ERROR(MACNAME(), 'Parameter missing (X)'));
+    X = TRIM(X);
+    RETURN('IEOR(IEOR('!!PPM_ROTR32(X, 7)!!',' !!
+                         PPM_ROTR32(X,18)!!'),'!!
+                        'ISRL('!!X!!',3))');
+ %END;
+
+ /* Original code in c:                                               */
+ /*     #define g_0(x)  (rotr64((x),1) ^ rotr64((x),8) ^ ((x)>>7))    */
+ %PPM_G_0_64: PROC(X) STATEMENT RETURNS (CHAR);
+      DECLARE
+ (X)             CHAR,
+ (MACNAME,TRIM)  BUILTIN;
+
+    IF PPM_IS_PARM_EMPTY(X) THEN
+       RETURN(PPM_ERROR(MACNAME(), 'Parameter missing (X)'));
+    X = TRIM(X);
+    RETURN('IEOR(IEOR('!!PPM_ROTR64(X, 1)!!',' !!
+                         PPM_ROTR64(X, 8)!!'),'!!
+                        'ISRL('!!X!!',7))');
+ %END;
+
+ %PPM_G_0: PROC(X, BIT) STATEMENT RETURNS (CHAR);
+      DECLARE
+ (X,BIT)       CHAR,
+ (MACNAME)     BUILTIN;
+
+    IF PPM_IS_PARM_EMPTY(X) THEN
+       RETURN(PPM_ERROR(MACNAME(), 'Parameter missing (X)'));
+    IF PPM_IS_PARM_EMPTY(BIT) THEN
+       RETURN(PPM_ERROR(MACNAME(), 'Parameter missing (BIT)'));
+    SELECT(BIT);
+       WHEN(32) RETURN(PPM_G_0_32(X));
+       WHEN(64) RETURN(PPM_G_0_64(X));
+    END;
+    RETURN(PPM_ERROR(MACNAME(),
+           'Parameter invalid BIT="' !! BIT !! '"'));
+ %END;
+
+ /* Original code in c:                                               */
+ /*      #define g_1(x)  (rotr32((x),17)^rotr32((x),19)^((x)>>10))    */
+ %PPM_G_1_32: PROC(X) STATEMENT RETURNS (CHAR);
+      DECLARE
+ (X)             CHAR,
+ (MACNAME,TRIM)  BUILTIN;
+
+    IF PPM_IS_PARM_EMPTY(X) THEN
+       RETURN(PPM_ERROR(MACNAME(), 'Parameter missing (X)'));
+    X = TRIM(X);
+    RETURN('IEOR(IEOR('!!PPM_ROTR32(X, 17)!!',' !!
+                         PPM_ROTR32(X, 19)!!'),'!!
+                        'ISRL('!!X!!',10))');
+ %END;
+
+ /* Original code in c:                                               */
+ /*      #define g_1(x)  (rotr64((x),19)^rotr64((x),61)^((x)>>6))     */
+ %PPM_G_1_64: PROC(X) STATEMENT RETURNS (CHAR);
+      DECLARE
+ (X)             CHAR,
+ (MACNAME,TRIM)  BUILTIN;
+
+    IF PPM_IS_PARM_EMPTY(X) THEN
+       RETURN(PPM_ERROR(MACNAME(), 'Parameter missing (X)'));
+    X = TRIM(X);
+    RETURN('IEOR(IEOR('!!PPM_ROTR64(X, 19)!!',' !!
+                         PPM_ROTR64(X, 61)!!'),'!!
+                        'ISRL('!!X!!',6))');
+ %END;
+
+ %PPM_G_1: PROC(X, BIT) STATEMENT RETURNS (CHAR);
+      DECLARE
+ (X,BIT)       CHAR,
+ (MACNAME)     BUILTIN;
+
+    IF PPM_IS_PARM_EMPTY(X) THEN
+       RETURN(PPM_ERROR(MACNAME(), 'Parameter missing (X)'));
+    IF PPM_IS_PARM_EMPTY(BIT) THEN
+       RETURN(PPM_ERROR(MACNAME(), 'Parameter missing (BIT)'));
+    SELECT(BIT);
+       WHEN(32) RETURN(PPM_G_1_32(X));
+       WHEN(64) RETURN(PPM_G_1_64(X));
+    END;
+    RETURN(PPM_ERROR(MACNAME(),
+           'Parameter invalid BIT="' !! BIT !! '"'));
+ %END;
+
+ /* Rotated sha256 round definition. Rather than swapping             */
+ /* variables as in FIPS-180, different variables are 'rotated' on    */
+ /* each round, returning to their starting positions every eight     */
+ /* rounds                                                            */
+ /* Original code in c:                                               */
+ /*      #define one_cycle(a,b,c,d,e,f,g,h,k,w)  \                    */
+ /*          q(h) += s_1(q(e)) + ch(q(e), q(f), q(g)) + k + w; \      */
+ /*          q(d) += q(h); \                                          */
+ /*          q(h) += s_0(q(a)) + maj(q(a), q(b), q(c))                */
+ /*********************************************************************/
+ %DCL PPM_ONE_CYCLE ENTRY;
+ %PPM_ONE_CYCLE: PROC(A, K, W, BIT) STATEMENT RETURNS (CHAR);
+      DECLARE
+ (A,K,W,BIT)      CHAR,
+ (B,C,D,E,F,G,H)  CHAR,
+ FIX_A            FIXED,
+ (AUFRUF_HF,I)    CHAR,
+ (MACNAME,TRIM)   BUILTIN;
+
+    IF PPM_IS_PARM_EMPTY(A) THEN
+       RETURN(PPM_ERROR(MACNAME(), 'Parameter missing (A)'));
+    IF PPM_IS_PARM_EMPTY(K) THEN
+       RETURN(PPM_ERROR(MACNAME(), 'Parameter missing (K)'));
+    IF PPM_IS_PARM_EMPTY(W) THEN
+       RETURN(PPM_ERROR(MACNAME(), 'Parameter missing (W)'));
+    IF PPM_IS_PARM_EMPTY(BIT) THEN
+       RETURN(PPM_ERROR(MACNAME(), 'Parameter missing (BIT)'));
+    A = TRIM(A);
+    K = TRIM(K);
+    W = TRIM(W);
+    IF PPM_IS_NUMERIC(A) = 0 THEN
+       RETURN(PPM_ERROR(MACNAME(),
+              'Parameter error: A="' !! A !! + '" not numeric'));
+    FIX_A = A;
+    A = 'V' !! PPM_MOD(FIX_A+0, 8);
+    B = 'V' !! PPM_MOD(FIX_A+1, 8);
+    C = 'V' !! PPM_MOD(FIX_A+2, 8);
+    D = 'V' !! PPM_MOD(FIX_A+3, 8);
+    E = 'V' !! PPM_MOD(FIX_A+4, 8);
+    F = 'V' !! PPM_MOD(FIX_A+5, 8);
+    G = 'V' !! PPM_MOD(FIX_A+6, 8);
+    H = 'V' !! PPM_MOD(FIX_A+7, 8);
+    IF SUBSTR(W, 1, 2) = 'HF' THEN DO;
+       I = SUBSTR(W,3);
+       IF PPM_IS_NUMERIC(I) = 0 THEN
+          RETURN(PPM_ERROR(MACNAME(),
+                 'Parameter W="' !! W !! ' is not numeric'));
+       AUFRUF_HF = PPM_HF(I, BIT)!!';';
+       W = '(P('!!PPM_MOD(I, 16)!!'))';
+    END;
+    ELSE DO;
+       AUFRUF_HF = '';
+    END;
+    RETURN(AUFRUF_HF                          !!
+          H !! '+=' !! PPM_S_1(E, BIT) !! '+' !!
+                    PPM_CH(E,F,G) !! '+' !! K !! '+' !! W !! ';' !!
+          D !! '+=' !! H !! ';'                              !!
+          H !! '+=' !! PPM_S_0(A, BIT) !! '+' !!
+                    PPM_MAJ(A, B, C) !! ';');
+ %END;
+
+ %IF PPV_SHA2_224 ! PPV_SHA2_256 THEN DO;
+
+ SHA256_COMPILE: PROC(CTX_PTR) OPTIONS(BYVALUE);
+      DECLARE
+ CTX_PTR       POINTER INONLY,
+ 1 CTX         TYPE SHA256_CTX_TYPE   BASED(CTX_PTR),
+ WBUF_PTR      POINTER                INIT(ADDR(CTX.WBUF)),
+ P(0:15)       BIN FIXED(32) UNSIGNED BASED(WBUF_PTR);
+      DECLARE
+ (V0,V1,V2,V3,V4,V5,V6,V7) BIN FIXED(32) UNSIGNED;
+      DECLARE
+ (ADDR,IAND,IEOR,IOR,ISLL,ISRL)  BUILTIN;
+
+    V0=CTX.HASH(0);  V1=CTX.HASH(1);  V2=CTX.HASH(2);  V3=CTX.HASH(3);
+    V4=CTX.HASH(4);  V5=CTX.HASH(5);  V6=CTX.HASH(6);  V7=CTX.HASH(7);
+
+    PPM_ONE_CYCLE(0, '428A2F98'XN, P( 0), 32);
+    PPM_ONE_CYCLE(7, '71374491'XN, P( 1), 32);
+    PPM_ONE_CYCLE(6, 'B5C0FBCF'XN, P( 2), 32);
+    PPM_ONE_CYCLE(5, 'E9B5DBA5'XN, P( 3), 32);
+    PPM_ONE_CYCLE(4, '3956C25B'XN, P( 4), 32);
+    PPM_ONE_CYCLE(3, '59F111F1'XN, P( 5), 32);
+    PPM_ONE_CYCLE(2, '923F82A4'XN, P( 6), 32);
+    PPM_ONE_CYCLE(1, 'AB1C5ED5'XN, P( 7), 32);
+    PPM_ONE_CYCLE(0, 'D807AA98'XN, P( 8), 32);
+    PPM_ONE_CYCLE(7, '12835B01'XN, P( 9), 32);
+    PPM_ONE_CYCLE(6, '243185BE'XN, P(10), 32);
+    PPM_ONE_CYCLE(5, '550C7DC3'XN, P(11), 32);
+    PPM_ONE_CYCLE(4, '72BE5D74'XN, P(12), 32);
+    PPM_ONE_CYCLE(3, '80DEB1FE'XN, P(13), 32);
+    PPM_ONE_CYCLE(2, '9BDC06A7'XN, P(14), 32);
+    PPM_ONE_CYCLE(1, 'C19BF174'XN, P(15), 32);
+
+    PPM_ONE_CYCLE(0, 'E49B69C1'XN, HF0 , 32);
+    PPM_ONE_CYCLE(7, 'EFBE4786'XN, HF1 , 32);
+    PPM_ONE_CYCLE(6, '0FC19DC6'XN, HF2 , 32);
+    PPM_ONE_CYCLE(5, '240CA1CC'XN, HF3 , 32);
+    PPM_ONE_CYCLE(4, '2DE92C6F'XN, HF4 , 32);
+    PPM_ONE_CYCLE(3, '4A7484AA'XN, HF5 , 32);
+    PPM_ONE_CYCLE(2, '5CB0A9DC'XN, HF6 , 32);
+    PPM_ONE_CYCLE(1, '76F988DA'XN, HF7 , 32);
+    PPM_ONE_CYCLE(0, '983E5152'XN, HF8 , 32);
+    PPM_ONE_CYCLE(7, 'A831C66D'XN, HF9 , 32);
+    PPM_ONE_CYCLE(6, 'B00327C8'XN, HF10, 32);
+    PPM_ONE_CYCLE(5, 'BF597FC7'XN, HF11, 32);
+    PPM_ONE_CYCLE(4, 'C6E00BF3'XN, HF12, 32);
+    PPM_ONE_CYCLE(3, 'D5A79147'XN, HF13, 32);
+    PPM_ONE_CYCLE(2, '06CA6351'XN, HF14, 32);
+    PPM_ONE_CYCLE(1, '14292967'XN, HF15, 32);
+
+    PPM_ONE_CYCLE(0, '27B70A85'XN, HF0 , 32);
+    PPM_ONE_CYCLE(7, '2E1B2138'XN, HF1 , 32);
+    PPM_ONE_CYCLE(6, '4D2C6DFC'XN, HF2 , 32);
+    PPM_ONE_CYCLE(5, '53380D13'XN, HF3 , 32);
+    PPM_ONE_CYCLE(4, '650A7354'XN, HF4 , 32);
+    PPM_ONE_CYCLE(3, '766A0ABB'XN, HF5 , 32);
+    PPM_ONE_CYCLE(2, '81C2C92E'XN, HF6 , 32);
+    PPM_ONE_CYCLE(1, '92722C85'XN, HF7 , 32);
+    PPM_ONE_CYCLE(0, 'A2BFE8A1'XN, HF8 , 32);
+    PPM_ONE_CYCLE(7, 'A81A664B'XN, HF9 , 32);
+    PPM_ONE_CYCLE(6, 'C24B8B70'XN, HF10, 32);
+    PPM_ONE_CYCLE(5, 'C76C51A3'XN, HF11, 32);
+    PPM_ONE_CYCLE(4, 'D192E819'XN, HF12, 32);
+    PPM_ONE_CYCLE(3, 'D6990624'XN, HF13, 32);
+    PPM_ONE_CYCLE(2, 'F40E3585'XN, HF14, 32);
+    PPM_ONE_CYCLE(1, '106AA070'XN, HF15, 32);
+
+    PPM_ONE_CYCLE(0, '19A4C116'XN, HF0 , 32);
+    PPM_ONE_CYCLE(7, '1E376C08'XN, HF1 , 32);
+    PPM_ONE_CYCLE(6, '2748774C'XN, HF2 , 32);
+    PPM_ONE_CYCLE(5, '34B0BCB5'XN, HF3 , 32);
+    PPM_ONE_CYCLE(4, '391C0CB3'XN, HF4 , 32);
+    PPM_ONE_CYCLE(3, '4ED8AA4A'XN, HF5 , 32);
+    PPM_ONE_CYCLE(2, '5B9CCA4F'XN, HF6 , 32);
+    PPM_ONE_CYCLE(1, '682E6FF3'XN, HF7 , 32);
+    PPM_ONE_CYCLE(0, '748F82EE'XN, HF8 , 32);
+    PPM_ONE_CYCLE(7, '78A5636F'XN, HF9 , 32);
+    PPM_ONE_CYCLE(6, '84C87814'XN, HF10, 32);
+    PPM_ONE_CYCLE(5, '8CC70208'XN, HF11, 32);
+    PPM_ONE_CYCLE(4, '90BEFFFA'XN, HF12, 32);
+    PPM_ONE_CYCLE(3, 'A4506CEB'XN, HF13, 32);
+    PPM_ONE_CYCLE(2, 'BEF9A3F7'XN, HF14, 32);
+    PPM_ONE_CYCLE(1, 'C67178F2'XN, HF15, 32);
+
+    CTX.HASH(0)+=V0; CTX.HASH(1)+=V1; CTX.HASH(2)+=V2; CTX.HASH(3)+=V3;
+    CTX.HASH(4)+=V4; CTX.HASH(5)+=V5; CTX.HASH(6)+=V6; CTX.HASH(7)+=V7;
+ END SHA256_COMPILE;
+
+ SHA224_HASH: PROC(DATA_PTR, LEN, SHA224_CTX_PTR) OPTIONS(BYVALUE);
+      DECLARE
+ DATA_PTR        POINTER                 INONLY,
+ LEN             BIN FIXED(32) UNSIGNED  INONLY,
+ SHA224_CTX_PTR  POINTER                 INONLY,
+ 1 SHA224_CTX  TYPE SHA224_CTX_TYPE      BASED(SHA224_CTX_PTR);
+
+    CALL SHA256_HASH(DATA_PTR, LEN, SHA224_CTX_PTR);
+ END SHA224_HASH;
+
+ /* SHA256 hash data in an array of bytes into hash buffer            */
+ /* and call the hash_compile function as required.                   */
+ SHA256_HASH: PROC(DATA_PTR, LEN, SHA256_CTX_PTR) OPTIONS(BYVALUE);
+      DECLARE
+ DATA_PTR        POINTER                 INONLY,
+ LEN             BIN FIXED(32) UNSIGNED  INONLY,
+ SHA256_CTX_PTR  POINTER                 INONLY,
+ 1 SHA256_CTX  TYPE SHA256_CTX_TYPE      BASED(SHA256_CTX_PTR);
+      DECLARE
+ SP       POINTER                INIT(DATA_PTR),
+ POS      BIN FIXED(32) UNSIGNED INIT((IAND(SHA256_CTX.COUNT_LO,
+                                            STG(SHA256_CTX.WBUF) - 1))),
+ SPACE    BIN FIXED(32) UNSIGNED;
+      DECLARE
+ (ADDR,IAND,PLIMOVE,STG)  BUILTIN;
+
+    SPACE = STG(SHA256_CTX.WBUF) - POS;
+    SHA256_CTX.COUNT_LO += LEN;
+    IF SHA256_CTX.COUNT_LO < LEN THEN SHA256_CTX.COUNT_HI += 1;
+
+    IF LEN >= SPACE THEN DO;
+       CALL PLIMOVE(ADDR(SHA256_CTX.WBUF) + POS, SP, SPACE);
+       SP  += SPACE;
+       LEN -= SPACE;
+       POS  = 0;
+       CALL SHA256_COMPILE(SHA256_CTX_PTR);
+       DO WHILE(LEN >= STG(SHA256_CTX.WBUF));
+          CALL PLIMOVE(ADDR(SHA256_CTX.WBUF), SP, STG(SHA256_CTX.WBUF));
+          CALL SHA256_COMPILE(SHA256_CTX_PTR);
+          SP  += STG(SHA256_CTX.WBUF);
+          LEN -= STG(SHA256_CTX.WBUF);
+       END;
+    END;
+    CALL PLIMOVE(ADDR(SHA256_CTX.WBUF) + POS, SP, LEN);
+ END SHA256_HASH;
+
+ /* SHA256 Final padding and digest calculation                       */
+ SHA_END1: PROC(CTX_PTR, HVAL_PTR, HLEN)
+           OPTIONS(BYVALUE);
+      DECLARE
+ CTX_PTR       POINTER INONLY,
+ 1 CTX         TYPE SHA256_CTX_TYPE BASED(CTX_PTR),
+ HVAL_PTR      POINTER INONLY,
+ HLEN          BIN FIXED(32) INONLY UNSIGNED;
+      DECLARE
+ I             BIN FIXED(32) UNSIGNED;
+      DECLARE
+ (ADDR,IAND,INOT,IOR,ISRL,ISLL,MIN,PLIMOVE,STG,UNSPEC)  BUILTIN;
+
+    I = IAND(CTX.COUNT_LO, STG(CTX.WBUF) - 1);
+    /* we now need to mask valid bytes and add the padding which is   */
+    /* a single 1 bit and as many zero bits as necessary. Note that   */
+    /* we can always add the first padding byte here because the      */
+    /* buffer always has at least one empty slot                      */
+    UNSPEC(CTX.WBUF(ISRL(I, 2))) &=
+                         UNSPEC(ISLL('FFFFFF80'XU, 8*IAND(INOT(I), 3)));
+    UNSPEC(CTX.WBUF(ISRL(I, 2))) !=
+                         UNSPEC(ISLL('00000080'XU, 8*IAND(INOT(I), 3)));
+    /* we need 9 or more empty positions, one for the padding byte    */
+    /* (above) and eight for the length count.  If there is not       */
+    /* enough space pad and empty the buffer                          */
+    IF I > STG(CTX.WBUF) - 9 THEN DO;
+        IF I < 60 THEN CTX.WBUF(15) = 0;
+        CALL SHA256_COMPILE(CTX_PTR);
+        I = 0;
+    END;
+    ELSE DO;  /* compute a word index for the empty buffer positions  */
+        I = ISRL(I, 2) + 1;
+    END;
+    DO WHILE(I < 14); /* and zero pad all but last two positions */
+       CTX.WBUF(I) = 0;
+       I += 1;
+    END;
+    /* the following 32-bit length fields are assembled in the        */
+    /* wrong byte order on little endian machines but this is         */
+    /* corrected later since they are only ever used as 32-bit        */
+    /* word values.                                                   */
+    CTX.WBUF(14) = IOR(ISLL(CTX.COUNT_HI, 3), ISRL(CTX.COUNT_LO, 29));
+    CTX.WBUF(15) = ISLL(CTX.COUNT_LO, 3);
+    CALL SHA256_COMPILE(CTX_PTR);
+    CALL PLIMOVE(HVAL_PTR, ADDR(CTX.HASH), MIN(HLEN, STG(CTX.HASH)));
+ END SHA_END1;
+
+ %IF PPV_SHA2_224 THEN DO;
+
+ SHA224_BEGIN: PROC(SHA224_CTX_PTR) OPTIONS(BYVALUE);
+      DECLARE
+ SHA224_CTX_PTR  POINTER INONLY,
+ 1 SHA224_CTX    TYPE SHA224_CTX_TYPE  BASED(SHA224_CTX_PTR);
+      DECLARE
+ I224(0:7)     BIN FIXED(32) UNSIGNED STATIC NONASSIGNABLE
+           INIT('C1059ED8'XU, '367CD507'XU, '3070DD17'XU, 'F70E5939'XU,
+                'FFC00B31'XU, '68581511'XU, '64F98FA7'XU, 'BEFA4FA4'XU);
+
+    SHA224_CTX.COUNT_LO = 0;
+    SHA224_CTX.COUNT_HI = 0;
+    SHA224_CTX.HASH = I224;
+ END SHA224_BEGIN;
+
+ SHA224_END: PROC(SHA224_CTX_PTR) RETURNS(TYPE SHA224_DIGEST_TYPE)
+             OPTIONS(BYVALUE);
+      DECLARE
+ SHA224_CTX_PTR  POINTER INONLY,
+ 1 SHA224_CTX    TYPE SHA224_CTX_TYPE  BASED(SHA224_CTX_PTR),
+ HVAL            TYPE SHA224_DIGEST_TYPE;
+      DECLARE
+ (ADDR,STG)    BUILTIN;
+
+    CALL SHA_END1(SHA224_CTX_PTR, ADDR(HVAL), STG(HVAL));
+    RETURN(HVAL);
+ END SHA224_END;
+
+ SHA224: PROC(DATA_PTR, LEN) RETURNS(TYPE SHA224_DIGEST_TYPE)
+         OPTIONS(BYVALUE);
+      DECLARE
+ DATA_PTR        POINTER                 INONLY,
+ LEN             BIN FIXED(32) UNSIGNED  INONLY;
+      DECLARE
+ SHA224_CTX_PTR  POINTER INIT(ADDR(SHA224_CTX)),
+ 1 SHA224_CTX    TYPE SHA224_CTX_TYPE;
+      DECLARE
+ (ADDR)          BUILTIN;
+
+    CALL SHA224_BEGIN(SHA224_CTX_PTR);
+    CALL SHA224_HASH(DATA_PTR, LEN, SHA224_CTX_PTR);
+    RETURN(SHA224_END(SHA224_CTX_PTR));
+ END SHA224;
+ %END; /* IF PPV_SHA2_224 */
+
+ %IF PPV_SHA2_256 THEN DO;
+
+ SHA256_BEGIN: PROC(SHA256_CTX_PTR) OPTIONS(BYVALUE);
+      DECLARE
+ SHA256_CTX_PTR  POINTER INONLY,
+ 1 SHA256_CTX    TYPE SHA256_CTX_TYPE BASED(SHA256_CTX_PTR);
+      DECLARE
+ I256(0:7)     BIN FIXED(32) UNSIGNED STATIC NONASSIGNABLE
+           INIT('6A09E667'XU, 'BB67AE85'XU, '3C6EF372'XU, 'A54FF53A'XU,
+                '510E527F'XU, '9B05688C'XU, '1F83D9AB'XU, '5BE0CD19'XU);
+
+    SHA256_CTX.COUNT_LO = 0;
+    SHA256_CTX.COUNT_HI = 0;
+    SHA256_CTX.HASH = I256;
+ END SHA256_BEGIN;
+
+ SHA256_END: PROC(SHA256_CTX_PTR) RETURNS(TYPE SHA256_DIGEST_TYPE)
+             OPTIONS(BYVALUE);
+      DECLARE
+ SHA256_CTX_PTR  POINTER INONLY,
+ 1 SHA256_CTX    TYPE SHA256_CTX_TYPE BASED(SHA256_CTX_PTR),
+ HVAL            TYPE SHA256_DIGEST_TYPE;
+      DECLARE
+ (ADDR,STG)    BUILTIN;
+
+    CALL SHA_END1(SHA256_CTX_PTR, ADDR(HVAL), STG(HVAL));
+    RETURN(HVAL);
+ END SHA256_END;
+
+ SHA256: PROC(DATA_PTR, LEN) RETURNS(TYPE SHA256_DIGEST_TYPE)
+         OPTIONS(BYVALUE);
+      DECLARE
+ DATA_PTR        POINTER                 INONLY,
+ LEN             BIN FIXED(32) UNSIGNED  INONLY;
+      DECLARE
+ SHA256_CTX_PTR  POINTER INIT(ADDR(SHA256_CTX)),
+ 1 SHA256_CTX    TYPE SHA256_CTX_TYPE;
+      DECLARE
+ (ADDR)        BUILTIN;
+
+    CALL SHA256_BEGIN(SHA256_CTX_PTR);
+    CALL SHA256_HASH(DATA_PTR, LEN, SHA256_CTX_PTR);
+    RETURN(SHA256_END(SHA256_CTX_PTR));
+ END SHA256;
+ %END; /* IF PPV_SHA2_256 */
+ %END; /* IF PPV_SHA2_224 ! PPV_SHA2_256 */
+
+ %IF PPV_SHA2_384     ! PPV_SHA2_512 !
+     PPV_SHA2_512_224 ! PPV_SHA2_512_256 THEN DO;
+
+ /* Compile 128 bytes of hash data into SHA384/512 digest             */
+ /* NOTE: this routine assumes that the byte order in the             */
+ /* ctx->wbuf[] at this point is such that low address bytes          */
+ /* in the ORIGINAL byte stream will go into the high end of          */
+ /* words on BOTH big and little endian systems                       */
+ SHA512_COMPILE: PROC(CTX_PTR) OPTIONS(BYVALUE);
+      DECLARE
+ CTX_PTR       POINTER INONLY,
+ 1 CTX         TYPE SHA512_CTX_TYPE   BASED(CTX_PTR),
+ WBUF_PTR      POINTER                INIT(ADDR(CTX.WBUF)),
+ P(0:15)       BIN FIXED(64) UNSIGNED BASED(WBUF_PTR);
+      DECLARE
+ (V0,V1,V2,V3,V4,V5,V6,V7) BIN FIXED(64) UNSIGNED;
+      DECLARE
+ (ADDR,IAND,IEOR,IOR,ISLL,ISRL)  BUILTIN;
+
+    V0=CTX.HASH(0);  V1=CTX.HASH(1);  V2=CTX.HASH(2);  V3=CTX.HASH(3);
+    V4=CTX.HASH(4);  V5=CTX.HASH(5);  V6=CTX.HASH(6);  V7=CTX.HASH(7);
+
+    PPM_ONE_CYCLE(0, '428A2F98D728AE22'XN, P( 0), 64);
+    PPM_ONE_CYCLE(7, '7137449123EF65CD'XN, P( 1), 64);
+    PPM_ONE_CYCLE(6, 'B5C0FBCFEC4D3B2F'XN, P( 2), 64);
+    PPM_ONE_CYCLE(5, 'E9B5DBA58189DBBC'XN, P( 3), 64);
+    PPM_ONE_CYCLE(4, '3956C25BF348B538'XN, P( 4), 64);
+    PPM_ONE_CYCLE(3, '59F111F1B605D019'XN, P( 5), 64);
+    PPM_ONE_CYCLE(2, '923F82A4AF194F9B'XN, P( 6), 64);
+    PPM_ONE_CYCLE(1, 'AB1C5ED5DA6D8118'XN, P( 7), 64);
+    PPM_ONE_CYCLE(0, 'D807AA98A3030242'XN, P( 8), 64);
+    PPM_ONE_CYCLE(7, '12835B0145706FBE'XN, P( 9), 64);
+    PPM_ONE_CYCLE(6, '243185BE4EE4B28C'XN, P(10), 64);
+    PPM_ONE_CYCLE(5, '550C7DC3D5FFB4E2'XN, P(11), 64);
+    PPM_ONE_CYCLE(4, '72BE5D74F27B896F'XN, P(12), 64);
+    PPM_ONE_CYCLE(3, '80DEB1FE3B1696B1'XN, P(13), 64);
+    PPM_ONE_CYCLE(2, '9BDC06A725C71235'XN, P(14), 64);
+    PPM_ONE_CYCLE(1, 'C19BF174CF692694'XN, P(15), 64);
+
+    PPM_ONE_CYCLE(0, 'E49B69C19EF14AD2'XN, HF0  , 64);
+    PPM_ONE_CYCLE(7, 'EFBE4786384F25E3'XN, HF1  , 64);
+    PPM_ONE_CYCLE(6, '0FC19DC68B8CD5B5'XN, HF2  , 64);
+    PPM_ONE_CYCLE(5, '240CA1CC77AC9C65'XN, HF3  , 64);
+    PPM_ONE_CYCLE(4, '2DE92C6F592B0275'XN, HF4  , 64);
+    PPM_ONE_CYCLE(3, '4A7484AA6EA6E483'XN, HF5  , 64);
+    PPM_ONE_CYCLE(2, '5CB0A9DCBD41FBD4'XN, HF6  , 64);
+    PPM_ONE_CYCLE(1, '76F988DA831153B5'XN, HF7  , 64);
+    PPM_ONE_CYCLE(0, '983E5152EE66DFAB'XN, HF8  , 64);
+    PPM_ONE_CYCLE(7, 'A831C66D2DB43210'XN, HF9  , 64);
+    PPM_ONE_CYCLE(6, 'B00327C898FB213F'XN, HF10 , 64);
+    PPM_ONE_CYCLE(5, 'BF597FC7BEEF0EE4'XN, HF11 , 64);
+    PPM_ONE_CYCLE(4, 'C6E00BF33DA88FC2'XN, HF12 , 64);
+    PPM_ONE_CYCLE(3, 'D5A79147930AA725'XN, HF13 , 64);
+    PPM_ONE_CYCLE(2, '06CA6351E003826F'XN, HF14 , 64);
+    PPM_ONE_CYCLE(1, '142929670A0E6E70'XN, HF15 , 64);
+
+    PPM_ONE_CYCLE(0, '27B70A8546D22FFC'XN, HF0  , 64);
+    PPM_ONE_CYCLE(7, '2E1B21385C26C926'XN, HF1  , 64);
+    PPM_ONE_CYCLE(6, '4D2C6DFC5AC42AED'XN, HF2  , 64);
+    PPM_ONE_CYCLE(5, '53380D139D95B3DF'XN, HF3  , 64);
+    PPM_ONE_CYCLE(4, '650A73548BAF63DE'XN, HF4  , 64);
+    PPM_ONE_CYCLE(3, '766A0ABB3C77B2A8'XN, HF5  , 64);
+    PPM_ONE_CYCLE(2, '81C2C92E47EDAEE6'XN, HF6  , 64);
+    PPM_ONE_CYCLE(1, '92722C851482353B'XN, HF7  , 64);
+    PPM_ONE_CYCLE(0, 'A2BFE8A14CF10364'XN, HF8  , 64);
+    PPM_ONE_CYCLE(7, 'A81A664BBC423001'XN, HF9  , 64);
+    PPM_ONE_CYCLE(6, 'C24B8B70D0F89791'XN, HF10 , 64);
+    PPM_ONE_CYCLE(5, 'C76C51A30654BE30'XN, HF11 , 64);
+    PPM_ONE_CYCLE(4, 'D192E819D6EF5218'XN, HF12 , 64);
+    PPM_ONE_CYCLE(3, 'D69906245565A910'XN, HF13 , 64);
+    PPM_ONE_CYCLE(2, 'F40E35855771202A'XN, HF14 , 64);
+    PPM_ONE_CYCLE(1, '106AA07032BBD1B8'XN, HF15 , 64);
+
+    PPM_ONE_CYCLE(0, '19A4C116B8D2D0C8'XN, HF0  , 64);
+    PPM_ONE_CYCLE(7, '1E376C085141AB53'XN, HF1  , 64);
+    PPM_ONE_CYCLE(6, '2748774CDF8EEB99'XN, HF2  , 64);
+    PPM_ONE_CYCLE(5, '34B0BCB5E19B48A8'XN, HF3  , 64);
+    PPM_ONE_CYCLE(4, '391C0CB3C5C95A63'XN, HF4  , 64);
+    PPM_ONE_CYCLE(3, '4ED8AA4AE3418ACB'XN, HF5  , 64);
+    PPM_ONE_CYCLE(2, '5B9CCA4F7763E373'XN, HF6  , 64);
+    PPM_ONE_CYCLE(1, '682E6FF3D6B2B8A3'XN, HF7  , 64);
+    PPM_ONE_CYCLE(0, '748F82EE5DEFB2FC'XN, HF8  , 64);
+    PPM_ONE_CYCLE(7, '78A5636F43172F60'XN, HF9  , 64);
+    PPM_ONE_CYCLE(6, '84C87814A1F0AB72'XN, HF10 , 64);
+    PPM_ONE_CYCLE(5, '8CC702081A6439EC'XN, HF11 , 64);
+    PPM_ONE_CYCLE(4, '90BEFFFA23631E28'XN, HF12 , 64);
+    PPM_ONE_CYCLE(3, 'A4506CEBDE82BDE9'XN, HF13 , 64);
+    PPM_ONE_CYCLE(2, 'BEF9A3F7B2C67915'XN, HF14 , 64);
+    PPM_ONE_CYCLE(1, 'C67178F2E372532B'XN, HF15 , 64);
+
+    PPM_ONE_CYCLE(0, 'CA273ECEEA26619C'XN, HF0  , 64);
+    PPM_ONE_CYCLE(7, 'D186B8C721C0C207'XN, HF1  , 64);
+    PPM_ONE_CYCLE(6, 'EADA7DD6CDE0EB1E'XN, HF2  , 64);
+    PPM_ONE_CYCLE(5, 'F57D4F7FEE6ED178'XN, HF3  , 64);
+    PPM_ONE_CYCLE(4, '06F067AA72176FBA'XN, HF4  , 64);
+    PPM_ONE_CYCLE(3, '0A637DC5A2C898A6'XN, HF5  , 64);
+    PPM_ONE_CYCLE(2, '113F9804BEF90DAE'XN, HF6  , 64);
+    PPM_ONE_CYCLE(1, '1B710B35131C471B'XN, HF7  , 64);
+    PPM_ONE_CYCLE(0, '28DB77F523047D84'XN, HF8  , 64);
+    PPM_ONE_CYCLE(7, '32CAAB7B40C72493'XN, HF9  , 64);
+    PPM_ONE_CYCLE(6, '3C9EBE0A15C9BEBC'XN, HF10 , 64);
+    PPM_ONE_CYCLE(5, '431D67C49C100D4C'XN, HF11 , 64);
+    PPM_ONE_CYCLE(4, '4CC5D4BECB3E42B6'XN, HF12 , 64);
+    PPM_ONE_CYCLE(3, '597F299CFC657E2A'XN, HF13 , 64);
+    PPM_ONE_CYCLE(2, '5FCB6FAB3AD6FAEC'XN, HF14 , 64);
+    PPM_ONE_CYCLE(1, '6C44198C4A475817'XN, HF15 , 64);
+
+    CTX.HASH(0)+=V0; CTX.HASH(1)+=V1; CTX.HASH(2)+=V2; CTX.HASH(3)+=V3;
+    CTX.HASH(4)+=V4; CTX.HASH(5)+=V5; CTX.HASH(6)+=V6; CTX.HASH(7)+=V7;
+ END SHA512_COMPILE;
+
+ SHA384_HASH: PROC(DATA_PTR, LEN, SHA384_CTX_PTR) OPTIONS(BYVALUE);
+      DECLARE
+ DATA_PTR        POINTER                 INONLY,
+ LEN             BIN FIXED(32) UNSIGNED  INONLY,
+ SHA384_CTX_PTR  POINTER                 INONLY,
+ 1 SHA384_CTX    TYPE SHA384_CTX_TYPE    BASED(SHA384_CTX_PTR);
+
+    CALL SHA512_HASH(DATA_PTR, LEN, SHA384_CTX_PTR);
+ END SHA384_HASH;
+
+ SHA512_HASH: PROC(DATA_PTR, LEN, SHA512_CTX_PTR) OPTIONS(BYVALUE);
+      DECLARE
+ DATA_PTR        POINTER                 INONLY,
+ LEN             BIN FIXED(32) UNSIGNED  INONLY,
+ SHA512_CTX_PTR  POINTER                 INONLY,
+ 1 SHA512_CTX    TYPE SHA512_CTX_TYPE    BASED(SHA512_CTX_PTR);
+      DECLARE
+ SP       POINTER                INIT(DATA_PTR),
+ POS      BIN FIXED(32) UNSIGNED INIT((IAND(SHA512_CTX.COUNT_LO,
+                                            STG(SHA512_CTX.WBUF) - 1))),
+ SPACE    BIN FIXED(32) UNSIGNED;
+      DECLARE
+ (ADDR,IAND,PLIMOVE,STG)  BUILTIN;
+
+    SPACE = STG(SHA512_CTX.WBUF) - POS;
+    SHA512_CTX.COUNT_LO += LEN;
+    IF SHA512_CTX.COUNT_LO < LEN THEN SHA512_CTX.COUNT_HI += 1;
+
+    IF LEN >= SPACE THEN DO;
+       CALL PLIMOVE(ADDR(SHA512_CTX.WBUF) + POS, SP, SPACE);
+       SP  += SPACE;
+       LEN -= SPACE;
+       POS  = 0;
+       CALL SHA512_COMPILE(SHA512_CTX_PTR);
+       DO WHILE(LEN >= STG(SHA512_CTX.WBUF));
+          CALL PLIMOVE(ADDR(SHA512_CTX.WBUF), SP, STG(SHA512_CTX.WBUF));
+          CALL SHA512_COMPILE(SHA512_CTX_PTR);
+          SP  += STG(SHA512_CTX.WBUF);
+          LEN -= STG(SHA512_CTX.WBUF);
+       END;
+    END;
+    CALL PLIMOVE(ADDR(SHA512_CTX.WBUF) + POS, SP, LEN);
+ END SHA512_HASH;
+
+ SHA512_224_HASH: PROC(DATA_PTR, LEN, SHA512_224_CTX_PTR)
+                  OPTIONS(BYVALUE);
+      DECLARE
+ DATA_PTR        POINTER                 INONLY,
+ LEN             BIN FIXED(32) UNSIGNED  INONLY,
+ SHA512_224_CTX_PTR POINTER              INONLY,
+ 1 SHA512_224_CTX TYPE SHA512_224_CTX_TYPE BASED(SHA512_224_CTX_PTR);
+
+    CALL SHA512_HASH(DATA_PTR, LEN, SHA512_224_CTX_PTR);
+ END SHA512_224_HASH;
+
+ SHA512_256_HASH: PROC(DATA_PTR, LEN, SHA512_256_CTX_PTR)
+                  OPTIONS(BYVALUE);
+      DECLARE
+ DATA_PTR        POINTER                 INONLY,
+ LEN             BIN FIXED(32) UNSIGNED  INONLY,
+ SHA512_256_CTX_PTR POINTER              INONLY,
+ 1 SHA512_256_CTX TYPE SHA512_256_CTX_TYPE BASED(SHA512_256_CTX_PTR);
+
+    CALL SHA512_HASH(DATA_PTR, LEN, SHA512_256_CTX_PTR);
+ END SHA512_256_HASH;
+
+ SHA_END2: PROC(CTX_PTR, HVAL_PTR, HLEN)
+           OPTIONS(BYVALUE);
+      DECLARE
+ CTX_PTR       POINTER INONLY,
+ 1 CTX         TYPE SHA512_CTX_TYPE BASED(CTX_PTR),
+ HVAL_PTR      POINTER INONLY,
+ HLEN          BIN FIXED(32) INONLY UNSIGNED;
+      DECLARE
+ I             BIN FIXED(32) UNSIGNED;
+      DECLARE
+ (ADDR,IAND,INOT,IOR,ISRL,ISLL,MIN,PLIMOVE,STG,UNSPEC)  BUILTIN;
+
+    I = IAND(CTX.COUNT_LO, STG(CTX.WBUF) - 1);
+    /* we now need to mask valid bytes and add the padding which is   */
+    /* a single 1 bit and as many zero bits as necessary. Note that   */
+    /* we can always add the first padding byte here because the      */
+    /* buffer always has at least one empty slot                      */
+    UNSPEC(CTX.WBUF(ISRL(I, 3))) &=
+                 UNSPEC(ISLL('FFFFFFFFFFFFFF00'XU, 8*IAND(INOT(I), 7)));
+    UNSPEC(CTX.WBUF(ISRL(I, 3))) !=
+                 UNSPEC(ISLL('0000000000000080'XU, 8*IAND(INOT(I), 7)));
+    /* we need 17 or more empty byte positions, one for the padding   */
+    /* byte (above) and sixteen for the length count.  If there is    */
+    /* not enough space pad and empty the buffer                      */
+    IF I > STG(CTX.WBUF) - 17 THEN DO;
+        IF I < 120 THEN CTX.WBUF(15) = 0;
+        CALL SHA512_COMPILE(CTX_PTR);
+        I = 0;
+    END;
+    ELSE DO;
+        I = ISRL(I, 3) + 1;
+    END;
+    DO WHILE(I < 14);
+       CTX.WBUF(I) = 0;
+       I += 1;
+    END;
+    /* the following 64-bit length fields are assembled in the        */
+    /* wrong byte order on little endian machines but this is         */
+    /* corrected later since they are only ever used as 64-bit        */
+    /* word values.                                                   */
+    CTX.WBUF(14) = IOR(ISLL(CTX.COUNT_HI, 3), ISRL(CTX.COUNT_LO, 61));
+    CTX.WBUF(15) = ISLL(CTX.COUNT_LO, 3);
+    CALL SHA512_COMPILE(CTX_PTR);
+    CALL PLIMOVE(HVAL_PTR, ADDR(CTX.HASH), MIN(HLEN, STG(CTX.HASH)));
+ END SHA_END2;
+
+ %IF PPV_SHA2_384 THEN DO;
+
+ SHA384_BEGIN: PROC(SHA384_CTX_PTR) OPTIONS(BYVALUE);
+      DECLARE
+ SHA384_CTX_PTR  POINTER INONLY,
+ 1 SHA384_CTX    TYPE SHA384_CTX_TYPE BASED(SHA384_CTX_PTR);
+      DECLARE
+ I384(0:7)     BIN FIXED(64) UNSIGNED STATIC NONASSIGNABLE
+                       INIT('CBBB9D5DC1059ED8'XU, '629A292A367CD507'XU,
+                            '9159015A3070DD17'XU, '152FECD8F70E5939'XU,
+                            '67332667FFC00B31'XU, '8EB44A8768581511'XU,
+                            'DB0C2E0D64F98FA7'XU, '47B5481DBEFA4FA4'XU);
+
+    SHA384_CTX.COUNT_LO = 0;
+    SHA384_CTX.COUNT_HI = 0;
+    SHA384_CTX.HASH = I384;
+ END SHA384_BEGIN;
+
+ SHA384_END: PROC(SHA384_CTX_PTR) RETURNS(TYPE SHA384_DIGEST_TYPE)
+             OPTIONS(BYVALUE);
+      DECLARE
+ SHA384_CTX_PTR  POINTER INONLY,
+ 1 SHA384_CTX    TYPE SHA384_CTX_TYPE BASED(SHA384_CTX_PTR),
+ HVAL            TYPE SHA384_DIGEST_TYPE;
+      DECLARE
+ (ADDR,STG)    BUILTIN;
+
+    CALL SHA_END2(SHA384_CTX_PTR, ADDR(HVAL), STG(HVAL));
+    RETURN(HVAL);
+ END SHA384_END;
+
+ SHA384: PROC(DATA_PTR, LEN) RETURNS(TYPE SHA384_DIGEST_TYPE)
+         OPTIONS(BYVALUE);
+      DECLARE
+ DATA_PTR      POINTER                 INONLY,
+ LEN           BIN FIXED(32) UNSIGNED  INONLY;
+      DECLARE
+ SHA384_CTX_PTR  POINTER INIT(ADDR(SHA384_CTX)),
+ 1 SHA384_CTX    TYPE SHA384_CTX_TYPE;
+      DECLARE
+ (ADDR)        BUILTIN;
+
+    CALL SHA384_BEGIN(SHA384_CTX_PTR);
+    CALL SHA384_HASH(DATA_PTR, LEN, SHA384_CTX_PTR);
+    RETURN(SHA384_END(SHA384_CTX_PTR));
+ END SHA384;
+ %END; /* IF PPV_SHA2_384 */
+
+ %IF PPV_SHA2_512 THEN DO;
+
+ SHA512_BEGIN: PROC(SHA512_CTX_PTR) OPTIONS(BYVALUE);
+      DECLARE
+ SHA512_CTX_PTR  POINTER INONLY,
+ 1 SHA512_CTX    TYPE SHA512_CTX_TYPE  BASED(SHA512_CTX_PTR);
+      DECLARE
+ I512(0:7)     BIN FIXED(64) UNSIGNED STATIC NONASSIGNABLE
+                       INIT('6A09E667F3BCC908'XU, 'BB67AE8584CAA73B'XU,
+                            '3C6EF372FE94F82B'XU, 'A54FF53A5F1D36F1'XU,
+                            '510E527FADE682D1'XU, '9B05688C2B3E6C1F'XU,
+                            '1F83D9ABFB41BD6B'XU, '5BE0CD19137E2179'XU);
+
+    SHA512_CTX.COUNT_LO = 0;
+    SHA512_CTX.COUNT_HI = 0;
+    SHA512_CTX.HASH = I512;
+ END SHA512_BEGIN;
+
+ SHA512_END: PROC(SHA512_CTX_PTR) RETURNS(TYPE SHA512_DIGEST_TYPE)
+             OPTIONS(BYVALUE);
+      DECLARE
+ SHA512_CTX_PTR  POINTER INONLY,
+ 1 SHA512_CTX    TYPE SHA512_CTX_TYPE  BASED(SHA512_CTX_PTR),
+ HVAL          TYPE SHA512_DIGEST_TYPE;
+      DECLARE
+ (ADDR,STG)    BUILTIN;
+
+    CALL SHA_END2(SHA512_CTX_PTR, ADDR(HVAL), STG(HVAL));
+    RETURN(HVAL);
+ END SHA512_END;
+
+ SHA512: PROC(DATA_PTR, LEN) RETURNS(TYPE SHA512_DIGEST_TYPE)
+         OPTIONS(BYVALUE);
+      DECLARE
+ DATA_PTR        POINTER                 INONLY,
+ LEN             BIN FIXED(32) UNSIGNED  INONLY;
+      DECLARE
+ SHA512_CTX_PTR  POINTER INIT(ADDR(SHA512_CTX)),
+ 1 SHA512_CTX    TYPE SHA512_CTX_TYPE;
+      DECLARE
+ (ADDR)        BUILTIN;
+
+    CALL SHA512_BEGIN(SHA512_CTX_PTR);
+    CALL SHA512_HASH(DATA_PTR, LEN, SHA512_CTX_PTR);
+    RETURN(SHA512_END(SHA512_CTX_PTR));
+ END SHA512;
+ %END; /* IF PPV_SHA2_512 */
+
+ %IF PPV_SHA2_512_224 THEN DO;
+
+ SHA512_224_BEGIN: PROC(SHA512_224_CTX_PTR) OPTIONS(BYVALUE);
+      DECLARE
+ SHA512_224_CTX_PTR  POINTER INONLY,
+ 1 SHA512_224_CTX    TYPE SHA512_224_CTX_TYPE BASED(SHA512_224_CTX_PTR);
+      DECLARE
+ I512_224(0:7) BIN FIXED(64) UNSIGNED STATIC NONASSIGNABLE
+                       INIT('8C3D37C819544DA2'XU, '73E1996689DCD4D6'XU,
+                            '1DFAB7AE32FF9C82'XU, '679DD514582F9FCF'XU,
+                            '0F6D2B697BD44DA8'XU, '77E36F7304C48942'XU,
+                            '3F9D85A86A1D36C8'XU, '1112E6AD91D692A1'XU);
+
+    SHA512_224_CTX.COUNT_LO = 0;
+    SHA512_224_CTX.COUNT_HI = 0;
+    SHA512_224_CTX.HASH = I512_224;
+ END SHA512_224_BEGIN;
+
+ SHA512_224_END: PROC(SHA512_224_CTX_PTR) OPTIONS(BYVALUE)
+                 RETURNS(TYPE SHA512_224_DIGEST_TYPE);
+      DECLARE
+ SHA512_224_CTX_PTR  POINTER INONLY,
+ 1 SHA512_224_CTX    TYPE SHA512_224_CTX_TYPE BASED(SHA512_224_CTX_PTR),
+ HVAL                TYPE SHA512_224_DIGEST_TYPE;
+      DECLARE
+ (ADDR,STG)    BUILTIN;
+
+    CALL SHA_END2(SHA512_224_CTX_PTR, ADDR(HVAL), STG(HVAL));
+    RETURN(HVAL);
+ END SHA512_224_END;
+
+ SHA512_224: PROC(DATA_PTR, LEN) RETURNS(TYPE SHA512_224_DIGEST_TYPE)
+         OPTIONS(BYVALUE);
+      DECLARE
+ DATA_PTR      POINTER                 INONLY,
+ LEN           BIN FIXED(32) UNSIGNED  INONLY;
+      DECLARE
+ SHA512_224_CTX_PTR POINTER INIT(ADDR(SHA512_224_CTX)),
+ 1 SHA512_224_CTX TYPE SHA512_224_CTX_TYPE;
+      DECLARE
+ (ADDR)        BUILTIN;
+
+    CALL SHA512_224_BEGIN(SHA512_224_CTX_PTR);
+    CALL SHA512_224_HASH(DATA_PTR, LEN, SHA512_224_CTX_PTR);
+    RETURN(SHA512_224_END(SHA512_224_CTX_PTR));
+ END SHA512_224;
+ %END; /* IF PPV_SHA2_512_224 */
+
+ %IF PPV_SHA2_512_256 THEN DO;
+
+ SHA512_256_BEGIN: PROC(SHA512_256_CTX_PTR) OPTIONS(BYVALUE);
+      DECLARE
+ SHA512_256_CTX_PTR  POINTER INONLY,
+ 1 SHA512_256_CTX    TYPE SHA512_256_CTX_TYPE BASED(SHA512_256_CTX_PTR);
+      DECLARE
+ I512_256(0:7) BIN FIXED(64) UNSIGNED STATIC NONASSIGNABLE
+                       INIT('22312194FC2BF72C'XU, '9F555FA3C84C64C2'XU,
+                            '2393B86B6F53B151'XU, '963877195940EABD'XU,
+                            '96283EE2A88EFFE3'XU, 'BE5E1E2553863992'XU,
+                            '2B0199FC2C85B8AA'XU, '0EB72DDC81C52CA2'XU);
+
+    SHA512_256_CTX.COUNT_LO = 0;
+    SHA512_256_CTX.COUNT_HI = 0;
+    SHA512_256_CTX.HASH = I512_256;
+ END SHA512_256_BEGIN;
+
+ SHA512_256_END: PROC(SHA512_256_CTX_PTR) OPTIONS(BYVALUE)
+                 RETURNS(TYPE SHA512_256_DIGEST_TYPE);
+      DECLARE
+ SHA512_256_CTX_PTR  POINTER INONLY,
+ 1 SHA512_256_CTX    TYPE SHA512_256_CTX_TYPE BASED(SHA512_256_CTX_PTR),
+ HVAL                TYPE SHA512_256_DIGEST_TYPE;
+      DECLARE
+ (ADDR,STG)    BUILTIN;
+
+    CALL SHA_END2(SHA512_256_CTX_PTR, ADDR(HVAL), STG(HVAL));
+    RETURN(HVAL);
+ END SHA512_256_END;
+
+ SHA512_256: PROC(DATA_PTR, LEN) RETURNS(TYPE SHA512_256_DIGEST_TYPE)
+             OPTIONS(BYVALUE);
+      DECLARE
+ DATA_PTR      POINTER                 INONLY,
+ LEN           BIN FIXED(32) UNSIGNED  INONLY;
+      DECLARE
+ SHA512_256_CTX_PTR  POINTER INIT(ADDR(SHA512_256_CTX)),
+ 1 SHA512_256_CTX    TYPE SHA512_256_CTX_TYPE;
+      DECLARE
+ (ADDR)        BUILTIN;
+
+    CALL SHA512_256_BEGIN(SHA512_256_CTX_PTR);
+    CALL SHA512_256_HASH(DATA_PTR, LEN, SHA512_256_CTX_PTR);
+    RETURN(SHA512_256_END(SHA512_256_CTX_PTR));
+ END SHA512_256;
+ %END; /* IF PPV_SHA2_512_256 */
+
+ %END;/*IF PPV_SHA2_384!PPV_SHA2_512!PPV_SHA2_512_224!PPV_SHA2_512_256*/
+
+ SHA2_HASH: PROC(SHA2_FUNCTION, DATA_PTR, LEN, SHA2_CTX_PTR)
+            OPTIONS(BYVALUE);
+      DECLARE
+ SHA2_FUNCTION  ORDINAL SHA2_FUNCTIONS  INONLY,
+ DATA_PTR       POINTER                 INONLY,
+ LEN            BIN FIXED(32) UNSIGNED  INONLY,
+ SHA2_CTX_PTR   POINTER                 INONLY,
+ 1 SHA2_CTX     TYPE SHA2_CTX_TYPE      BASED(SHA2_CTX_PTR);
+
+    SELECT(SHA2_FUNCTION);
+ %IF PPV_SHA2_224 THEN DO;
+       WHEN(SHA2_224)     CALL SHA224_HASH(DATA_PTR, LEN, SHA2_CTX_PTR);
+ %END;
+ %IF PPV_SHA2_256 THEN DO;
+       WHEN(SHA2_256)     CALL SHA256_HASH(DATA_PTR, LEN, SHA2_CTX_PTR);
+ %END;
+ %IF PPV_SHA2_384 THEN DO;
+       WHEN(SHA2_384)     CALL SHA384_HASH(DATA_PTR, LEN, SHA2_CTX_PTR);
+ %END;
+ %IF PPV_SHA2_512 THEN DO;
+       WHEN(SHA2_512)     CALL SHA512_HASH(DATA_PTR, LEN, SHA2_CTX_PTR);
+ %END;
+ %IF PPV_SHA2_512_224 THEN DO;
+       WHEN(SHA2_512_224) CALL SHA512_224_HASH(DATA_PTR, LEN,
+                                               SHA2_CTX_PTR);
+ %END;
+ %IF PPV_SHA2_512_256 THEN DO;
+       WHEN(SHA2_512_256) CALL SHA512_256_HASH(DATA_PTR, LEN,
+                                               SHA2_CTX_PTR);
+ %END;
+    END;
+ END SHA2_HASH;
+
+ SHA2_BEGIN: PROC(SHA2_FUNCTION, SHA2_CTX_PTR) OPTIONS(BYVALUE);
+      DECLARE
+ SHA2_FUNCTION  ORDINAL SHA2_FUNCTIONS  INONLY,
+ SHA2_CTX_PTR   POINTER                 INONLY,
+ 1 SHA2_CTX     TYPE SHA2_CTX_TYPE      BASED(SHA2_CTX_PTR);
+
+    SELECT(SHA2_FUNCTION);
+ %IF PPV_SHA2_224 THEN DO;
+       WHEN(SHA2_224)     CALL SHA224_BEGIN(SHA2_CTX_PTR);
+ %END;
+ %IF PPV_SHA2_256 THEN DO;
+       WHEN(SHA2_256)     CALL SHA256_BEGIN(SHA2_CTX_PTR);
+ %END;
+ %IF PPV_SHA2_384 THEN DO;
+       WHEN(SHA2_384)     CALL SHA384_BEGIN(SHA2_CTX_PTR);
+ %END;
+ %IF PPV_SHA2_512 THEN DO;
+       WHEN(SHA2_512)     CALL SHA512_BEGIN(SHA2_CTX_PTR);
+ %END;
+ %IF PPV_SHA2_512_224 THEN DO;
+       WHEN(SHA2_512_224) CALL SHA512_224_BEGIN(SHA2_CTX_PTR);
+ %END;
+ %IF PPV_SHA2_512_256 THEN DO;
+       WHEN(SHA2_512_256) CALL SHA512_256_BEGIN(SHA2_CTX_PTR);
+ %END;
+    END;
+ END SHA2_BEGIN;
+
+ SHA2_END: PROC(SHA2_FUNCTION, SHA2_CTX_PTR) OPTIONS(BYVALUE)
+           RETURNS(TYPE SHA2_DIGEST_TYPE);
+      DECLARE
+ SHA2_FUNCTION  ORDINAL SHA2_FUNCTIONS  INONLY,
+ SHA2_CTX_PTR   POINTER                 INONLY;
+
+    SELECT(SHA2_FUNCTION);
+ %IF PPV_SHA2_224 THEN DO;
+       WHEN(SHA2_224)     RETURN(SHA224_END(SHA2_CTX_PTR));
+ %END;
+ %IF PPV_SHA2_256 THEN DO;
+       WHEN(SHA2_256)     RETURN(SHA256_END(SHA2_CTX_PTR));
+ %END;
+ %IF PPV_SHA2_384 THEN DO;
+       WHEN(SHA2_384)     RETURN(SHA384_END(SHA2_CTX_PTR));
+ %END;
+ %IF PPV_SHA2_512 THEN DO;
+       WHEN(SHA2_512)     RETURN(SHA512_END(SHA2_CTX_PTR));
+ %END;
+ %IF PPV_SHA2_512_224 THEN DO;
+       WHEN(SHA2_512_224) RETURN(SHA512_224_END(SHA2_CTX_PTR));
+ %END;
+ %IF PPV_SHA2_512_256 THEN DO;
+       WHEN(SHA2_512_256) RETURN(SHA512_256_END(SHA2_CTX_PTR));
+ %END;
+    END;
+ END SHA2_END;
+
+ SHA2: PROC(SHA2_FUNCTION, DATA_PTR, LEN) OPTIONS(BYVALUE)
+            RETURNS(TYPE SHA2_DIGEST_TYPE);
+      DECLARE
+ SHA2_FUNCTION  ORDINAL SHA2_FUNCTIONS  INONLY,
+ DATA_PTR       POINTER                 INONLY,
+ LEN            BIN FIXED(32) UNSIGNED  INONLY;
+
+    SELECT(SHA2_FUNCTION);
+ %IF PPV_SHA2_224 THEN DO;
+       WHEN(SHA2_224)     RETURN(SHA224(DATA_PTR, LEN));
+ %END;
+ %IF PPV_SHA2_256 THEN DO;
+       WHEN(SHA2_256)     RETURN(SHA256(DATA_PTR, LEN));
+ %END;
+ %IF PPV_SHA2_384 THEN DO;
+       WHEN(SHA2_384)     RETURN(SHA384(DATA_PTR, LEN));
+ %END;
+ %IF PPV_SHA2_512 THEN DO;
+       WHEN(SHA2_512)     RETURN(SHA512(DATA_PTR, LEN));
+ %END;
+ %IF PPV_SHA2_512_224 THEN DO;
+       WHEN(SHA2_512_224) RETURN(SHA512_224(DATA_PTR, LEN));
+ %END;
+ %IF PPV_SHA2_512_256 THEN DO;
+       WHEN(SHA2_512_256) RETURN(SHA512_256(DATA_PTR, LEN));
+ %END;
+    END;
+ END SHA2;

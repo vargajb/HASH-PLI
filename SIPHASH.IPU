@@ -1,0 +1,283 @@
+ /* Preprocessor-makros and preprocessor-variables for SipHash        */
+
+ %DCL PPV_SIPHASH_PERFORMANT FIXED; %PPV_SIPHASH_PERFORMANT = 1;
+ %DCL PPV_SIPHASH_DEFAULT    FIXED; %PPV_SIPHASH_DEFAULT    = 2;
+ %DCL PPV_SIPHASH_SECURE     FIXED; %PPV_SIPHASH_SECURE     = 3;
+ %DCL PPV_SIPHASH_VARIANT    FIXED;
+ %PPV_SIPHASH_VARIANT = PPV_SIPHASH_DEFAULT;
+
+      DECLARE
+ $SIPHASH_BYTE_TAB(0:7) BIN FIXED(8)  UNSIGNED UNAL BASED;
+
+ %PPM_ROTL64: PROC(X,B) STATEMENT RETURNS (CHAR);
+      DECLARE
+ (X,B)           CHAR,
+ ZW_64_MINUS_B   FIXED,
+ M               CHAR,
+ (MACNAME,TRIM)  BUILTIN;
+
+    IF PPM_IS_PARM_EMPTY(X) THEN
+       RETURN(PPM_ERROR(MACNAME(), 'Parameter missing (X)'));
+    IF PPM_IS_PARM_EMPTY(B) THEN
+       RETURN(PPM_ERROR(MACNAME(), 'Parameter missing (B)'));
+    X = TRIM(X);
+    B = TRIM(B);
+    IF PPM_IS_NUMERIC(B) = 0 THEN
+       RETURN(PPM_ERROR(MACNAME(),
+              'Parameter error: B="' !! B !! + '" is not numeric'));
+    ZW_64_MINUS_B = B;
+    ZW_64_MINUS_B = 64 - ZW_64_MINUS_B;
+    M             = ZW_64_MINUS_B;
+    M             = TRIM(M);
+    RETURN('IOR(ISLL('!!X!!','!!B!!'),'!!'ISRL('!!X!!','!!M!!'))');
+ %END;
+
+ /* move 8 bytes tab to 64 bit integer                                */
+ %DCL PPM_U8TO64_LE ENTRY;
+ %PPM_U8TO64_LE: PROC(P) STATEMENT RETURNS (CHAR);
+      DECLARE
+ (P)           CHAR,
+ (MACNAME)     BUILTIN;
+      DECLARE
+ RET           CHAR;
+
+    IF PPM_IS_PARM_EMPTY(P) THEN
+       RETURN(PPM_ERROR(MACNAME(), 'Parameter missing (P)'));
+    RET=       'IOR(     BIN('!!P!!'->$SIPHASH_BYTE_TAB(0), 64),';
+    RET=ADDZ(RET,0,'ISLL(BIN('!!P!!'->$SIPHASH_BYTE_TAB(1), 64), 8),');
+    RET=ADDZ(RET,0,'ISLL(BIN('!!P!!'->$SIPHASH_BYTE_TAB(2), 64),16),');
+    RET=ADDZ(RET,0,'ISLL(BIN('!!P!!'->$SIPHASH_BYTE_TAB(3), 64),24),');
+    RET=ADDZ(RET,0,'ISLL(BIN('!!P!!'->$SIPHASH_BYTE_TAB(4), 64),32),');
+    RET=ADDZ(RET,0,'ISLL(BIN('!!P!!'->$SIPHASH_BYTE_TAB(5), 64),40),');
+    RET=ADDZ(RET,0,'ISLL(BIN('!!P!!'->$SIPHASH_BYTE_TAB(6), 64),48),');
+    RET=ADDZ(RET,0,'ISLL(BIN('!!P!!'->$SIPHASH_BYTE_TAB(7), 64),56));');
+    RETURN(RET);
+ %END;
+
+ %DCL PPM_SIPROUND ENTRY;
+ %PPM_SIPROUND: PROC(ROUNDS) STATEMENT RETURNS (CHAR);
+      DECLARE
+ (ROUNDS)      CHAR,
+ (MACNAME)     BUILTIN;
+      DECLARE
+ (I)           FIXED,
+ RET           CHAR;
+
+    IF PPM_IS_PARM_EMPTY(ROUNDS) THEN
+       RETURN(PPM_ERROR(MACNAME(), 'Parameter missing (ROUNDS)'));
+    IF PPM_IS_NUMERIC(ROUNDS) = 0 THEN
+       RETURN(PPM_ERROR(MACNAME(),
+              'Parameter error: ROUNDS="' !! ROUNDS !!
+              '" is not numeric'));
+    RET = '';
+    RET = ADDZ(RET,0,'DO;');
+    DO I = 1 TO ROUNDS;
+       RET = ADDZ(RET,3,'V0 = V0 + V1;');
+       RET = ADDZ(RET,3,'V1 = ' !! PPM_ROTL64('V1', 13) !! ';');
+       RET = ADDZ(RET,3,'V1 = IEOR(V1, V0);');
+       RET = ADDZ(RET,3,'V0 = ' !! PPM_ROTL64('V0', 32) !! ';');
+       RET = ADDZ(RET,3,'V2 = V2 + V3;');
+       RET = ADDZ(RET,3,'V3 = ' !! PPM_ROTL64('V3', 16) !! ';');
+       RET = ADDZ(RET,3,'V3 = IEOR(V3, V2);');
+       RET = ADDZ(RET,3,'V0 = V0 + V3;');
+       RET = ADDZ(RET,3,'V3 = ' !! PPM_ROTL64('V3', 21) !! ';');
+       RET = ADDZ(RET,3,'V3 = IEOR(V3, V0);');
+       RET = ADDZ(RET,3,'V2 = V2 + V1;');
+       RET = ADDZ(RET,3,'V1 = ' !! PPM_ROTL64('V1', 17) !! ';');
+       RET = ADDZ(RET,3,'V1 = IEOR(V1, V2);');
+       RET = ADDZ(RET,3,'V2 = ' !! PPM_ROTL64('V2', 32) !! ';');
+       RET = ADDZ(RET,3,'');
+       END;
+    RET = ADDZ(RET,3,'END;');
+    RETURN(RET);
+ %END;
+
+ %DCL PPV_DEBUG FIXED;
+ %PPV_DEBUG = 0;
+ %DCL PPV_TRACE CHAR;
+ %IF PPV_DEBUG THEN DO;
+     %PPV_TRACE = 'CALL TRACE;';
+ %END;
+ %ELSE DO;
+     %PPV_TRACE = '/* NO TRACE */';
+ %END;
+
+ %DCL PPV_CROUNDS            CHAR;
+ %DCL PPV_DROUNDS            CHAR;
+ %SELECT(PPV_SIPHASH_VARIANT);
+    %WHEN(PPV_SIPHASH_PERFORMANT) DO;
+       %PPV_CROUNDS = '1';
+       %PPV_DROUNDS = '3';
+    %END;
+    %WHEN(PPV_SIPHASH_SECURE) DO;
+       %PPV_CROUNDS = '4';
+       %PPV_DROUNDS = '8';
+    %END;
+    %OTHERWISE DO; /* WHEN(PPV_SIPHASH_DEFAULT) */
+       %PPV_CROUNDS = '2';
+       %PPV_DROUNDS = '4';
+    %END;
+ %END;
+
+ SIPHASH: PROC(IN_PTR, INLEN, KEY_PTR, OUT_PTR, OUTLEN);
+ /*********************************************************************/
+ /*                                                                   */
+ /*             D   E   F   I   N   I   T   I   O   N   S             */
+ /*                                                                   */
+ /*********************************************************************/
+      DECLARE
+ IN_PTR        POINTER                BYVALUE,
+ INLEN         BIN FIXED(32) UNSIGNED BYVALUE,
+ KEY_PTR       POINTER                BYVALUE,
+ 1 KEY_STR UNAL BASED(KEY_PTR),
+   3 KEY1  BIN FIXED(64) UNSIGNED,
+   3 KEY2  BIN FIXED(64) UNSIGNED,
+ OUT_PTR       POINTER                BYVALUE,
+ OUT_TAB(0:1)  BIN FIXED(64) UNSIGNED UNAL BASED(OUT_PTR),
+ OUTLEN        BIN FIXED(32) UNSIGNED BYVALUE;
+      DECLARE
+ (ADDR,STG,NULL, BIN,HEX,IAND,IEOR,IOR,ISLL,ISRL)  BUILTIN;
+      DECLARE
+ NI_PTR           POINTER,
+ (V0,V1,V2,V3,B)  BIN FIXED(64) UNSIGNED,
+ (K0,K1)          BIN FIXED(64) UNSIGNED,
+ M                BIN FIXED(64) UNSIGNED,
+ ENDP             POINTER,
+ LEFT             BIN FIXED(31),
+ BYTE_TAB(0:7)    BIN FIXED(8)  UNSIGNED UNAL BASED;
+      DECLARE
+ CHR15M           CHAR(16),
+ PIC15M           PIC'(14)Z9-'  BASED(ADDR(CHR15M));
+ /*********************************************************************/
+ /*                                                                   */
+ /*               P   R   O   C   E   S   S   I   N   G               */
+ /*                                                                   */
+ /*********************************************************************/
+
+    IF OUTLEN <> 8 & OUTLEN <> 16 THEN DO;
+       PUT EDIT('SipHash function parameter error',
+                'OUTLEN=', OUTLEN, ' is invalid.')
+               (SKIP, A,
+                SKIP, A,A,A);
+       SIGNAL ERROR;
+       END;
+    V0 = '736F6D6570736575'XU;
+    V1 = '646F72616E646F6D'XU;
+    V2 = '6C7967656E657261'XU;
+    V3 = '7465646279746573'XU;
+    PPV_TRACE;
+    K0 = PPM_U8TO64_LE(ADDR(KEY_STR.KEY1));
+    K1 = PPM_U8TO64_LE(ADDR(KEY_STR.KEY2));
+
+    LEFT = IAND(INLEN, STG(V0)-1);
+    ENDP = IN_PTR + INLEN - LEFT;
+    B = ISLL(BIN(INLEN, 64), 56);
+    V3 = IEOR(V3, K1);
+    V2 = IEOR(V2, K0);
+    V1 = IEOR(V1, K1);
+    V0 = IEOR(V0, K0);
+    PPV_TRACE;
+
+    IF OUTLEN = 16 THEN V1 = IEOR(V1, 'EE'XU);
+    PPV_TRACE;
+
+    DO NI_PTR = IN_PTR BY 8 WHILE(NI_PTR <> ENDP);
+       M = PPM_U8TO64_LE(NI_PTR);
+       V3 = IEOR(V3, M);
+       PPV_TRACE;
+       PPM_SIPROUND(PPV_CROUNDS);
+       V0 = IEOR(V0, M);
+       END;
+    SELECT(LEFT);
+       WHEN(7) GOTO LEFT_7;
+       WHEN(6) GOTO LEFT_6;
+       WHEN(5) GOTO LEFT_5;
+       WHEN(4) GOTO LEFT_4;
+       WHEN(3) GOTO LEFT_3;
+       WHEN(2) GOTO LEFT_2;
+       WHEN(1) GOTO LEFT_1;
+       WHEN(0) GOTO LEFT_0;
+       END;
+ LEFT_7: B = IOR(B, ISLL(BIN(NI_PTR->BYTE_TAB(6), 64), 48));
+ LEFT_6: B = IOR(B, ISLL(BIN(NI_PTR->BYTE_TAB(5), 64), 40));
+ LEFT_5: B = IOR(B, ISLL(BIN(NI_PTR->BYTE_TAB(4), 64), 32));
+ LEFT_4: B = IOR(B, ISLL(BIN(NI_PTR->BYTE_TAB(3), 64), 24));
+ LEFT_3: B = IOR(B, ISLL(BIN(NI_PTR->BYTE_TAB(2), 64), 16));
+ LEFT_2: B = IOR(B, ISLL(BIN(NI_PTR->BYTE_TAB(1), 64),  8));
+ LEFT_1: B = IOR(B,      BIN(NI_PTR->BYTE_TAB(0), 64)     );
+ LEFT_0:;
+
+    V3 = IEOR(V3, B);
+    PPV_TRACE;
+    PPM_SIPROUND(PPV_CROUNDS);
+    V0 = IEOR(V0, B);
+    IF OUTLEN = 16 THEN V2 = IEOR(V2, 'EE'XU);
+    ELSE                V2 = IEOR(V2, 'FF'XU);
+    PPV_TRACE;
+    PPM_SIPROUND(PPV_DROUNDS);
+    B = IEOR(IEOR(IEOR(V0, V1), V2), V3);
+    OUT_TAB(0) = PPM_U8TO64_LE(ADDR(B));
+    IF OUTLEN > 8 THEN DO;
+       V1 = IEOR(V1, 'DD'XU);
+       PPV_TRACE;
+       PPM_SIPROUND(PPV_DROUNDS);
+       PPV_TRACE;
+       B = IEOR(IEOR(IEOR(V0, V1), V2), V3);
+       OUT_TAB(1) = PPM_U8TO64_LE(ADDR(B));
+    END;
+
+ %IF PPV_DEBUG THEN DO;
+ TRACE: PROC;
+    PUT EDIT('(', INLEN, ') V0=', HEX(V0),
+             '(', INLEN, ') V1=', HEX(V1),
+             '(', INLEN, ') V2=', HEX(V2),
+             '(', INLEN, ') V3=', HEX(V3),
+             ' ')
+            (SKIP, A,F(2),A,A,
+             SKIP, A,F(2),A,A,
+             SKIP, A,F(2),A,A,
+             SKIP, A,F(2),A,A,
+             SKIP, A);
+ TRACE_END:  END TRACE;
+ %END;
+ END SIPHASH;
+
+ SIPHASH64: PROC(IN_PTR, INLEN) RETURNS(BIN FIXED(64) UNSIGNED);
+      DECLARE
+ IN_PTR        POINTER                BYVALUE,
+ INLEN         BIN FIXED(32) UNSIGNED BYVALUE,
+ RET_VAL       BIN FIXED(64) UNSIGNED;
+      DECLARE
+ (ADDR,STG,NULL, BIN,IOR,ISLL)  BUILTIN;
+      DECLARE
+ KEY_PTR       POINTER             INIT(ADDR(KEY_STR)) STATIC,
+ 1 KEY_STR UNAL STATIC,
+   3 KEY1  BIN FIXED(64) UNSIGNED  INIT('028DE5A44FC8889A'XU),
+   3 KEY2  BIN FIXED(64) UNSIGNED  INIT('CDF51863D49E8EAA'XU);
+      DECLARE
+ OUT_PTR       POINTER             INIT(ADDR(OUT)),
+ OUT           BIN FIXED(64) UNSIGNED;
+
+    CALL SIPHASH(IN_PTR, INLEN, KEY_PTR, OUT_PTR, STG(OUT));
+    RET_VAL = PPM_U8TO64_LE(OUT_PTR);
+    RETURN(RET_VAL);
+ END SIPHASH64;
+
+ SIPHASH64_KEY: PROC(IN_PTR, INLEN, KEY_STR)
+                RETURNS(BIN FIXED(64) UNSIGNED);
+      DECLARE
+ IN_PTR        POINTER                BYVALUE,
+ INLEN         BIN FIXED(32) UNSIGNED BYVALUE,
+ KEY_STR       CHAR(16),
+ KEY_PTR       POINTER             INIT(ADDR(KEY_STR)),
+ RET_VAL       BIN FIXED(64) UNSIGNED;
+      DECLARE
+ (ADDR,STG,NULL, LENGTH,BIN,IOR,ISLL)  BUILTIN;
+      DECLARE
+ OUT_PTR       POINTER             INIT(ADDR(OUT)),
+ OUT           BIN FIXED(64) UNSIGNED;
+
+    CALL SIPHASH(IN_PTR, INLEN, KEY_PTR, OUT_PTR, STG(OUT));
+    RET_VAL = PPM_U8TO64_LE(OUT_PTR);
+    RETURN(RET_VAL);
+ END SIPHASH64_KEY;

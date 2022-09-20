@@ -1,0 +1,70 @@
+ /*********************************************************************/
+ /*   GENERAL PURPOSE PL/I PREPROCESSORS MACROS                       */
+ /*********************************************************************/
+ %PPM_ERROR: PROC (PPMNAME,MSG) RETURNS(CHAR);
+      DECLARE
+ (PPMNAME,MSG)  CHAR;
+
+    RETURN('*** MACRO ERROR *** ' !!
+           '''' !! PPMNAME !! '''' !! ' ' !! MSG);
+ %END;
+
+ %PPM_IS_PARM_EMPTY: PROC (PARM)   RETURNS(FIXED);
+      DECLARE
+ PARM          CHAR,
+ (PARMSET)     BUILTIN;
+
+    IF ^PARMSET(PARM) ! PARM = '' THEN RETURN(1);
+    RETURN(0);
+ %END;
+
+ %PPM_IS_NUMERIC: PROC (STR)   RETURNS(FIXED);
+      DECLARE
+ STR              CHAR,
+ (LENGTH,VERIFY)  BUILTIN;
+
+    IF LENGTH(STR) = 0               THEN RETURN(0);
+    IF VERIFY(STR, '0123456789') = 0 THEN RETURN(1);
+    RETURN(0);
+ %END;
+
+ %PPM_IS_NUMERIC_VORZ: PROC(N) STATEMENT RETURNS (CHAR);
+      DECLARE
+ N             CHAR;
+
+    IF PPM_IS_PARM_EMPTY(N) THEN
+       RETURN(PPM_ERROR(MACNAME(), 'Parameter missing'));
+    N = TRIM(N);
+    IF SUBSTR(N, 1, 1) = '-' ! SUBSTR(N, 1, 1) = '+' THEN
+       RETURN(PPM_IS_NUMERIC(SUBSTR(N, 2)));
+    RETURN(PPM_IS_NUMERIC(N));
+ %END;
+
+ /*   Create formatted prep output                                    */
+ %DCL LINE ENTRY;
+ %LINE:   PROC (PAR1,PAR2)    RETURNS (CHAR);
+      DECLARE
+  PAR1           FIXED,    /* NUMBER OF LEADING BLANKS */
+  PAR2           CHAR,     /* STRING TO FORMAT         */
+  RET            CHAR,
+  (I,X)          FIXED,
+  (LENGTH,TRIM)  BUILTIN;
+
+        RET = TRIM(PAR2);
+        DO I = 1 TO PAR1;
+           RET = ' ' !! RET;
+           END;
+        DO X = LENGTH(RET) TO 1 BY -71;
+           END;
+        DO I = 1 TO -X;
+           RET = RET !! ' ';
+           END;
+        RETURN (RET);
+ %END;
+
+ /*   ADD-LINE                                                        */
+ %DCL ADDZ ENTRY;
+ %ADDZ: PROC (P1,P2,P3) RETURNS(CHAR);
+    DCL (P1,P2,P3)  CHAR;
+    RETURN(P1 !! LINE(P2,P3));
+ %END;
