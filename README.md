@@ -1,14 +1,13 @@
 # HASH-PLI
 [PL/I](https://en.wikipedia.org/wiki/PL/I) implementation of some hash functions.<br>
-HASH algorithms implemented in PL/I give the same result on [IBM mainframe](https://en.wikipedia.org/wiki/Mainframe_computer) as algorithms implemented in C running on a [PC](https://de.wikipedia.org/wiki/Personal_Computer).<br>
-The results of the CRC-32 and SHA-2 algorithms can be checked on a PC with FreeCommander (File / Create checksums...) or Total Commander (Files / Create Checksum File(s)...), and the SIPHASH results can be checked [online](https://duzun.me/playground/hash#siphash=).
-
 - [CRC-32](https://en.wikipedia.org/wiki/Cyclic_redundancy_check#CRC-32_algorithm) is an error-detecting code commonly used in digital networks and storage devices to detect accidental changes to digital data.
 - [SipHash](https://en.wikipedia.org/wiki/SipHash) is used in hash table implementations of [various software](https://en.wikipedia.org/wiki/SipHash#Usage) (such as [Python](https://en.wikipedia.org/wiki/Python_(programming_language)))<br>
 It is a [non-collision-resistant](https://en.wikipedia.org/wiki/Collision_resistance) 
 [keyed cryptographic hash function](https://en.wikipedia.org/wiki/List_of_hash_functions#Keyed_cryptographic_hash_functions).
 
 - [SHA-2](https://en.wikipedia.org/wiki/SHA-2) ([unkeyed cryptographic hash function](https://en.wikipedia.org/wiki/List_of_hash_functions#Unkeyed_cryptographic_hash_functions)) family hash functions: SHA-224, SHA-256, SHA-384, SHA-512, SHA-512/224, SHA-512/256.
+
+I performed a parallel test of these hash algorithms on [IBM mainframe](https://en.wikipedia.org/wiki/Mainframe_computer) and [PC](https://de.wikipedia.org/wiki/Personal_Computer). I calculated the CRC-32 and SHA-2 codes of files with FreeCommander and Total Commander (SipHash was checked [online](https://duzun.me/playground/hash#siphash=)) on PC. After uploading the files to Mainframe, I repeated the hash calculation there as well. The algorithm implemented in PL/I gives the same result.
 
  If you have a license for the C compiler on the mainframe, you have an easier task. :)
 
