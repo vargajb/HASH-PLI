@@ -7,12 +7,12 @@ It is a [non-collision-resistant](https://en.wikipedia.org/wiki/Collision_resist
 
 - [SHA-2](https://en.wikipedia.org/wiki/SHA-2) ([unkeyed cryptographic hash function](https://en.wikipedia.org/wiki/List_of_hash_functions#Unkeyed_cryptographic_hash_functions)) family hash functions: SHA-224, SHA-256, SHA-384, SHA-512, SHA-512/224, SHA-512/256.
 
-I performed a parallel test of these hash algorithms on [IBM mainframe](https://en.wikipedia.org/wiki/Mainframe_computer) and [PC](https://de.wikipedia.org/wiki/Personal_Computer). I calculated the CRC-32 and SHA-2 codes of files with FreeCommander and Total Commander (SipHash was checked [online](https://duzun.me/playground/hash#siphash=)) on PC. After uploading the files to Mainframe, I repeated the hash calculation there as well. The algorithm implemented in PL/I gives the same result.
+I performed a parallel test of these hash algorithms on [IBM Mainframe](https://en.wikipedia.org/wiki/Mainframe_computer) and [PC](https://de.wikipedia.org/wiki/Personal_Computer). I calculated the CRC-32 and SHA-2 codes of files with FreeCommander and Total Commander (SipHash was checked [online](https://duzun.me/playground/hash#siphash=)) on PC. After uploading the files to Mainframe, I repeated the hash calculation there as well. The algorithm implemented in PL/I gives the same result.
 
- If you have a license for the C compiler on the mainframe, you have an easier task. :)
+ If you have a license for the C compiler on the Mainframe, you have an easier task. :)
 
 ## What is the PL/I programming language?
-[PL/I](https://en.wikipedia.org/wiki/PL/I) is one of the oldest programming languages still used today on [IBM mainframe](https://en.wikipedia.org/wiki/Mainframe_computer) computers.
+[PL/I](https://en.wikipedia.org/wiki/PL/I) is one of the oldest programming languages still used in present-day on [IBM Mainframe](https://en.wikipedia.org/wiki/Mainframe_computer) computers.
 
 ## Tested with:
 CPU: [IBM z15](https://en.wikipedia.org/wiki/IBM_z15_(microprocessor)) 8561-710 ([big-endian](https://en.wikipedia.org/wiki/Endianness))<br>
